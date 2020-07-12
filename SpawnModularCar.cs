@@ -6,10 +6,12 @@ using Oxide.Core;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using Rust.Modular;
+using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.3.1")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.3.2")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : RustPlugin
     {
@@ -728,7 +730,7 @@ namespace Oxide.Plugins
                     chatMessages.Add(GetMessage(player, "Command.Spawn.Success.Locked"));
 
                 PrintToChat(player, string.Join(" ", chatMessages));
-                
+
                 if (preset != null)
                     MaybePlayCarRepairEffects(car);
             });
@@ -747,6 +749,10 @@ namespace Oxide.Plugins
 
             ModularCar car = (ModularCar)GameManager.server.CreateEntity(prefabName, position, GetIdealCarRotation(player));
             if (car == null) return;
+
+            if (preset != null)
+                car.spawnSettings = MakeSpawnSettings(preset.ModuleIDs);
+
             car.Spawn();
 
             car.OwnerID = player.userID;
@@ -754,23 +760,31 @@ namespace Oxide.Plugins
 
             SpawnCarCooldowns.UpdateLastUsedForPlayer(player);
 
-            Action FixAndMaybeLockCar = () =>
+            NextTick(() =>
             {
                 car.AdminFixUp(GetPlayerEnginePartsTier(player));
                 MaybeAutoLockCarForPlayer(car, player);
                 onReady?.Invoke(car);
-            };
-
-            NextTick(() =>
-            {
-                if (preset == null)
-                    FixAndMaybeLockCar();
-                else
-                {
-                    UpdateCarModules(car, preset.ModuleIDs);
-                    NextTick(FixAndMaybeLockCar);
-                }
             });
+        }
+
+        private SpawnSettings MakeSpawnSettings(List<int> moduleIDs)
+        {
+            var presetConfig = ScriptableObject.CreateInstance<ModularCarPresetConfig>();
+            presetConfig.socketItemDefs = moduleIDs.Select(id =>
+            {
+                // We are using 0 to represent an empty socket
+                if (id == 0) return null;
+                return ItemManager.FindItemDefinition(id)?.GetComponent<ItemModVehicleModule>();
+            }).ToArray();
+
+            return new SpawnSettings
+            {
+                useSpawnSettings = true,
+                minStartHealthPercent = 100,
+                maxStartHealthPercent = 100,
+                configurationOptions = new ModularCarPresetConfig[] { presetConfig }
+            };
         }
 
         private void MaybePlayCarRepairEffects(ModularCar car)
