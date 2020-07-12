@@ -38,6 +38,7 @@ namespace Oxide.Plugins
         private const string PermissionDespawn = "spawnmodularcar.despawn";
         private const string PermissionAutoKeyLock = "spawnmodularcar.autokeylock";
         private const string PermissionDriveUnderwater = "spawnmodularcar.underwater";
+        private const string PermissionAutoStartEngine = "spawnmodularcar.autostartengine";
 
         private const string PermissionPresets = "spawnmodularcar.presets";
 
@@ -79,6 +80,7 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermissionDespawn, this);
             permission.RegisterPermission(PermissionAutoKeyLock, this);
             permission.RegisterPermission(PermissionDriveUnderwater, this);
+            permission.RegisterPermission(PermissionAutoStartEngine, this);
 
             permission.RegisterPermission(PermissionPresets, this);
 
@@ -117,6 +119,19 @@ namespace Oxide.Plugins
             }
         }
 
+        private void OnEntityMounted(BaseMountable mountable, BasePlayer player)
+        {
+            if (mountable is BaseVehicleMountPoint)
+            {
+                var vehicle = (mountable as BaseVehicleMountPoint).GetVehicleParent();
+                if (vehicle is ModularCar)
+                {
+                    var car = vehicle as ModularCar;
+                    if (car.OwnerID == player.userID && car.CanRunEngines())
+                        car.FinishStartingEngine();
+                }
+            }
+        }
         #endregion
 
         #region Commands
