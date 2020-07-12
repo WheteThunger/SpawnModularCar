@@ -104,6 +104,7 @@ Misc:
   "Generic.Error.NoPresets": "You don't have any saved presets.",
   "Generic.Error.CarNotFound": "Error: You need a car to do that.",
   "Generic.Error.CarOccupied": "Error: Cannot do that while your car is occupied.",
+  "Generic.Error.CarDead": "Error: Your car is dead.",
   "Generic.Error.Cooldown": "Please wait <color=yellow>{0}s</color> and try again.",
   "Generic.Error.NoPermissionToPresetSocketCount": "Error: You don't have permission to use preset <color=yellow>{0}</color> because it requires <color=yellow>{1}</color> sockets.",
   "Generic.Error.PresetNotFound": "Error: Preset <color=yellow>{0}</color> not found.",
