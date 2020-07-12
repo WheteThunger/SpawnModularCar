@@ -37,6 +37,7 @@ namespace Oxide.Plugins
         private const string PermissionFetch = "spawnmodularcar.fetch";
         private const string PermissionDespawn = "spawnmodularcar.despawn";
         private const string PermissionAutoKeyLock = "spawnmodularcar.autokeylock";
+        private const string PermissionDriveUnderwater = "spawnmodularcar.underwater";
 
         private const string PermissionPresets = "spawnmodularcar.presets";
 
@@ -77,6 +78,7 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermissionFetch, this);
             permission.RegisterPermission(PermissionDespawn, this);
             permission.RegisterPermission(PermissionAutoKeyLock, this);
+            permission.RegisterPermission(PermissionDriveUnderwater, this);
 
             permission.RegisterPermission(PermissionPresets, this);
 
@@ -754,6 +756,12 @@ namespace Oxide.Plugins
                 car.spawnSettings = MakeSpawnSettings(preset.ModuleIDs);
 
             car.Spawn();
+
+            if (permission.UserHasPermission(player.UserIDString, PermissionDriveUnderwater))
+            {
+                car.waterSample.transform.SetParent(null);
+                car.waterSample.transform.SetPositionAndRotation(Vector3.up * 1000, new Quaternion());
+            }
 
             car.OwnerID = player.userID;
             pluginData.playerCars.Add(player.UserIDString, car.net.ID);

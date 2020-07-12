@@ -60,6 +60,7 @@ Misc:
 - `spawnmodularcar.fetch` -- Required to use `/mycar fetch`.
 - `spawnmodularcar.despawn` -- Required to use `/mycar destroy`.
 - `spawnmodularcar.autokeylock` -- Required to use automatic locking (i.e., `/mycar autolock`).
+- `spawnmodularcar.underwater` -- Allows your car to be driven underwater (scuba gear is recommended). Note: Underwater driving is noticeably slower than on land.
 - `spawnmodularcar.presets` -- Allows the player to use, `save`, `update`, `load`, `rename` and `delete` presets.
 
 # Configuration
