@@ -11,7 +11,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.3.2")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.4.0")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : RustPlugin
     {
@@ -39,6 +39,7 @@ namespace Oxide.Plugins
         private const string PermissionAutoKeyLock = "spawnmodularcar.autokeylock";
         private const string PermissionDriveUnderwater = "spawnmodularcar.underwater";
         private const string PermissionAutoStartEngine = "spawnmodularcar.autostartengine";
+        private const string PermissionAutoFillTankers = "spawnmodularcar.autofilltankers";
 
         private const string PermissionPresets = "spawnmodularcar.presets";
 
@@ -47,6 +48,7 @@ namespace Oxide.Plugins
         private const string PrefabSockets4 = "assets/content/vehicles/modularcar/4module_car_spawned.entity.prefab";
 
         private const string RepairEffectPrefab = "assets/bundled/prefabs/fx/build/promote_toptier.prefab";
+        private const string TankerFilledEffectPrefab = "assets/prefabs/food/water jug/effects/water-jug-fill-container.prefab";
 
         private readonly Dictionary<ulong, PlayerConfig> PlayerConfigsMap = new Dictionary<ulong, PlayerConfig>();
 
@@ -81,6 +83,7 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermissionAutoKeyLock, this);
             permission.RegisterPermission(PermissionDriveUnderwater, this);
             permission.RegisterPermission(PermissionAutoStartEngine, this);
+            permission.RegisterPermission(PermissionAutoFillTankers, this);
 
             permission.RegisterPermission(PermissionPresets, this);
 
@@ -191,6 +194,10 @@ namespace Oxide.Plugins
                     SubCommand_ToggleAutoLock(player, args.Skip(1).ToArray());
                     return;
 
+                case "autofilltankers":
+                    SubCommand_ToggleAutoFillTankers(player, args.Skip(1).ToArray());
+                    return;
+
                 default:
                     SubCommand_SpawnCar(player, args);
                     return;
@@ -238,10 +245,10 @@ namespace Oxide.Plugins
             }
 
             if (permission.UserHasPermission(player.UserIDString, PermissionAutoKeyLock))
-            {
-                var config = GetPlayerConfig(player);
-                messages.Add(GetMessage(player, "Command.Help.ToggleAutoLock", BooleanToLocalizedString(player, config.Settings.AutoKeyLock)));
-            }
+                messages.Add(GetMessage(player, "Command.Help.ToggleAutoLock", BooleanToLocalizedString(player, GetPlayerConfig(player).Settings.AutoKeyLock)));
+
+            if (permission.UserHasPermission(player.UserIDString, PermissionAutoFillTankers))
+                messages.Add(GetMessage(player, "Command.Help.ToggleAutoFillTankers", BooleanToLocalizedString(player, GetPlayerConfig(player).Settings.AutoFillTankers)));
 
             PrintToChat(player, string.Join("\n", messages));
         }
@@ -333,6 +340,7 @@ namespace Oxide.Plugins
             var shouldCleanupEngineParts = permission.UserHasPermission(player.UserIDString, PermissionEnginePartsCleanup);
             UpdateCarModules(car, GetCarModuleIDs(car), shouldCleanupEngineParts);
             car.AdminFixUp(GetPlayerEnginePartsTier(player));
+            MaybeFillTankerModules(car, player);
             FixCarCooldowns.UpdateLastUsedForPlayer(player);
 
             var chatMessages = new List<string> { GetMessage(player, "Command.Fix.Success") };
@@ -506,6 +514,7 @@ namespace Oxide.Plugins
 
             NextTick(() => {
                 car.AdminFixUp(GetPlayerEnginePartsTier(player));
+                MaybeFillTankerModules(car, player);
 
                 var chatMessages = new List<string> { GetMessage(player, "Command.LoadPreset.Success", preset.Name) };
                 if (MaybeAutoLockCarForPlayer(car, player))
@@ -572,6 +581,16 @@ namespace Oxide.Plugins
             config.Settings.AutoKeyLock = !config.Settings.AutoKeyLock;
             config.SaveData();
             ChatMessage(player, "Command.AutoKeyLock.Success", BooleanToLocalizedString(player, config.Settings.AutoKeyLock));
+        }
+
+        private void SubCommand_ToggleAutoFillTankers(BasePlayer player, string[] args)
+        {
+            if (!VerifyPermissionAny(player, PermissionAutoFillTankers)) return;
+
+            var config = GetPlayerConfig(player);
+            config.Settings.AutoFillTankers = !config.Settings.AutoFillTankers;
+            config.SaveData();
+            ChatMessage(player, "Command.AutoFillTankers.Success", BooleanToLocalizedString(player, config.Settings.AutoFillTankers));
         }
 
         #endregion
@@ -798,6 +817,7 @@ namespace Oxide.Plugins
             NextTick(() =>
             {
                 car.AdminFixUp(GetPlayerEnginePartsTier(player));
+                MaybeFillTankerModules(car, player);
                 MaybeAutoLockCarForPlayer(car, player);
                 onReady?.Invoke(car);
             });
@@ -844,6 +864,38 @@ namespace Oxide.Plugins
                 return true;
             }
             return false;
+        }
+
+        private void MaybeFillTankerModules(ModularCar car, BasePlayer player)
+        {
+            if (permission.UserHasPermission(player.UserIDString, PermissionAutoFillTankers)
+                && GetPlayerConfig(player).Settings.AutoFillTankers)
+            {
+                foreach (var module in car.AttachedModuleEntities)
+                {
+                    if (module is VehicleModuleStorage)
+                    {
+                        var container = (module as VehicleModuleStorage).GetContainer();
+                        if (container is LiquidContainer)
+                        {
+                            var liquidContainer = (container as LiquidContainer);
+
+                            // Remove existing liquid such as salt water
+                            var liquidItem = liquidContainer.GetLiquidItem();
+                            if (liquidItem != null)
+                            {
+                                liquidItem.RemoveFromContainer();
+                                liquidItem.Remove();
+                            }
+
+                            liquidContainer.inventory.AddItem(liquidContainer.defaultLiquid, liquidContainer.maxStackSize);
+
+                            if (pluginConfig.EnableEffects)
+                                Effect.server.Run(TankerFilledEffectPrefab, module.transform.position);
+                        }
+                    }
+                }
+            }
         }
 
         private void DismountAllPlayersFromCar(ModularCar car)
@@ -1024,6 +1076,7 @@ namespace Oxide.Plugins
                 ["Command.List"] = "Your saved modular car presets:",
                 ["Command.List.Item"] = "<color=yellow>{0}</color> ({1} sockets)",
                 ["Command.AutoKeyLock.Success"] = "<color=yellow>AutoLock</color> set to {0}",
+                ["Command.AutoFillTankers.Success"] = "<color=yellow>AutoFillTankers</color> set to {0}",
                 ["Command.Help"] = "<color=orange>SpawnModularCar Command Usages</color>",
                 ["Command.Help.Spawn.Basic"] = "<color=yellow>/mycar</color> - Spawn a random car with max allowed sockets",
                 ["Command.Help.Spawn.Basic.PresetsAllowed"] = "<color=yellow>/mycar</color> - Spawn a car using your <color=yellow>default</color> preset if saved, else spawn a random car with max allowed sockets",
@@ -1039,6 +1092,7 @@ namespace Oxide.Plugins
                 ["Command.Help.RenamePreset"] = "<color=yellow>/mycar rename <name> <new_name></color> - Rename a preset",
                 ["Command.Help.DeletePreset"] = "<color=yellow>/mycar delete <name></color> - Delete a preset",
                 ["Command.Help.ToggleAutoLock"] = "<color=yellow>/mycar autolock</color> - Toggle auto lock: {0}",
+                ["Command.Help.ToggleAutoFillTankers"] = "<color=yellow>/mycar autofilltankers</color> - Toggle automatic filling of tankers with fresh water: {0}",
             }, this);
         }
 
@@ -1134,6 +1188,9 @@ namespace Oxide.Plugins
         {
             [JsonProperty("AutoKeyLock")]
             public bool AutoKeyLock = false;
+
+            [JsonProperty("AutoFillTankers")]
+            public bool AutoFillTankers = false;
         }
 
         internal class PlayerConfig

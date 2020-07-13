@@ -16,6 +16,7 @@ The spawn position is relative to the player so that they are on the driver side
 - `/mycar fetch` -- Teleport your car to you. Uprights if it was flipped. Not allowed when the car is on a lift because that can cause issues, unless at least one seat is occupied and the plugin is configured with `CanFetchWhileOccupied: true`.
 - `/mycar destroy` -- Destroy your car, allowing you to spawn a new one.
 - `/mycar autolock` -- Toggles AutoLock. While ON, spawning your car, fixing it, or loading a preset will automatically create a new lock and add a matching key to your inventory. Note: This only happens if the car has at least one seating module.
+- `/mycar autofilltankers` -- Toggles AutoFillTankers. While ON, spawning your car, fixing it, or loading a preset will automatically fill any tanker modules to maximum capacity with fresh water. Any salt water in them will be removed.
 - `/mycar help` -- Print a list of available commands and their usage. Only shows commands allowed by your permissions.
 
 ### Preset-related commands
@@ -36,6 +37,7 @@ Note: The `save`, `update`, `load` and `delete` commands will use the "default" 
 Loading a preset is one of the more sophisticated features of this plugin. This will update your current car to match the module configuration of a saved preset in basically a factory new condition, as though you just spawned it.
 - Health and fuel are restored to maximum.
 - Engine components matching your permissions are automatically added to each engine module if applicable.
+- Tanker modules are filled with fresh water if the user has the permission.
 - The previous lock is removed. If you have any matching keys in their inventory, they are removed if the plugin is configured with `DeleteMatchingKeysFromPlayerInventoryOnDespawn: true`.
 - If you have AutoLock ON and the loaded preset has at least one seating module, a new lock is created and a matching key is added to your inventory.
 - Only the modules that don't match the desired configuration are replaced.
@@ -60,6 +62,7 @@ Misc:
 - `spawnmodularcar.fetch` -- Required to use `/mycar fetch`.
 - `spawnmodularcar.despawn` -- Required to use `/mycar destroy`.
 - `spawnmodularcar.autokeylock` -- Required to use automatic locking (i.e., `/mycar autolock`).
+- `spawnmodularcar.autofilltankers` - Required to use automatic filling of tanker modules (i.e. `/mycar autofilltankers`).
 - `spawnmodularcar.underwater` -- Allows your car to be driven underwater (scuba gear is recommended). Note: Underwater driving is noticeably slower than on land.
 - `spawnmodularcar.autostartengine` -- Automatically and instantly start your car's engine when you get in.
 - `spawnmodularcar.presets` -- Allows the player to use, `save`, `update`, `load`, `rename` and `delete` presets.
@@ -134,6 +137,7 @@ Misc:
   "Command.List": "Your saved modular car presets:",
   "Command.List.Item": "<color=yellow>{0}</color> ({1} sockets)",
   "Command.AutoKeyLock.Success": "<color=yellow>AutoLock</color> set to {0}",
+  "Command.AutoFillTankers.Success": "<color=yellow>AutoFillTankers</color> set to {0}",
   "Command.Help": "<color=orange>SpawnModularCar Command Usages</color>",
   "Command.Help.Spawn.Basic": "<color=yellow>/mycar</color> - Spawn a random car with max allowed sockets",
   "Command.Help.Spawn.Basic.PresetsAllowed": "<color=yellow>/mycar</color> - Spawn a car using your <color=yellow>default</color> preset if saved, else spawn a random car with max allowed sockets",
@@ -148,6 +152,7 @@ Misc:
   "Command.Help.LoadPreset": "<color=yellow>/mycar load <name></color> - Load a preset onto your car",
   "Command.Help.RenamePreset": "<color=yellow>/mycar rename <name> <new_name></color> - Rename a preset",
   "Command.Help.DeletePreset": "<color=yellow>/mycar delete <name></color> - Delete a preset",
-  "Command.Help.ToggleAutoLock": "<color=yellow>/mycar autolock</color> - Toggle auto lock: {0}"
+  "Command.Help.ToggleAutoLock": "<color=yellow>/mycar autolock</color> - Toggle auto lock: {0}",
+  "Command.Help.ToggleAutoFillTankers": "<color=yellow>/mycar autofilltankers</color> - Toggle automatic filling of tankers with fresh water: {0}"
 }
 ```
