@@ -586,7 +586,7 @@ namespace Oxide.Plugins
 
         #endregion
 
-        #region Helper Methods and Classes
+        #region Helper Methods - Command Checks
 
         private bool VerifyPermissionAny(BasePlayer player, params string[] permissionNames)
         {
@@ -689,17 +689,9 @@ namespace Oxide.Plugins
             return true;
         }
 
-        private string BooleanToLocalizedString(BasePlayer player, bool value) =>
-            value ? GetMessage(player, "Generic.Setting.On") : GetMessage(player, "Generic.Setting.Off");
+        #endregion
 
-        private void ChatMessage(BasePlayer player, string messageName, params object[] args) =>
-            PrintToChat(player, GetMessage(player, messageName), args);
-
-        private string GetMessage(BasePlayer player, string messageName, params object[] args)
-        {
-            var message = lang.GetMessage(messageName, this, player.UserIDString);
-            return args.Length > 0 ? string.Format(message, args) : message;
-        }
+        #region Helper Methods - Cars
 
         private ModularCar FindPlayerCar(BasePlayer player)
         {
@@ -715,6 +707,36 @@ namespace Oxide.Plugins
 
             return car;
         }
+
+        private List<int> GetCarModuleIDs(ModularCar car)
+        {
+            var moduleIDs = new List<int>();
+
+            for (int socketIndex = 0; socketIndex < car.TotalSockets; socketIndex++)
+            {
+                BaseVehicleModule module;
+                if (car.TryGetModuleAt(socketIndex, out module) && module.FirstSocketIndex == socketIndex)
+                    moduleIDs.Add(module.AssociatedItemDef.itemid);
+                else
+                    // Empty socket, use 0 to represent this
+                    moduleIDs.Add(0);
+            }
+
+            return moduleIDs;
+        }
+
+        private Vector3 GetIdealCarPosition(BasePlayer player)
+        {
+            Quaternion playerRotation = player.GetNetworkRotation();
+            Vector3 forward = playerRotation * Vector3.forward;
+            Vector3 straight = Vector3.Cross(Vector3.Cross(Vector3.up, forward), Vector3.up).normalized;
+            Vector3 position = player.transform.position + straight * 3f;
+            position.y = player.transform.position.y + 1f;
+            return position;
+        }
+
+        private Quaternion GetIdealCarRotation(BasePlayer player) =>
+            Quaternion.Euler(0, player.GetNetworkRotation().eulerAngles.y - 90, 0);
 
         private int GetPlayerEnginePartsTier(BasePlayer player)
         {
@@ -814,112 +836,6 @@ namespace Oxide.Plugins
             });
         }
 
-        private SpawnSettings MakeSpawnSettings(List<int> moduleIDs)
-        {
-            var presetConfig = ScriptableObject.CreateInstance<ModularCarPresetConfig>();
-            presetConfig.socketItemDefs = moduleIDs.Select(id =>
-            {
-                // We are using 0 to represent an empty socket
-                if (id == 0) return null;
-                return ItemManager.FindItemDefinition(id)?.GetComponent<ItemModVehicleModule>();
-            }).ToArray();
-
-            return new SpawnSettings
-            {
-                useSpawnSettings = true,
-                minStartHealthPercent = 100,
-                maxStartHealthPercent = 100,
-                configurationOptions = new ModularCarPresetConfig[] { presetConfig }
-            };
-        }
-
-        private void MaybePlayCarRepairEffects(ModularCar car)
-        {
-            if (!pluginConfig.EnableEffects) return;
-
-            if (car.AttachedModuleEntities.Count > 0)
-                foreach (var module in car.AttachedModuleEntities)
-                    Effect.server.Run(RepairEffectPrefab, module.transform.position);
-            else
-                Effect.server.Run(RepairEffectPrefab, car.transform.position);
-        }
-
-        private bool MaybeAutoLockCarForPlayer(ModularCar car, BasePlayer player)
-        {
-            if (permission.UserHasPermission(player.UserIDString, PermissionAutoKeyLock) && 
-                GetPlayerConfig(player).Settings.AutoKeyLock &&
-                !car.carLock.HasALock &&
-                car.carLock.CanHaveALock())
-            {
-                car.carLock.AddALock();
-                car.carLock.TryCraftAKey(player, free: true);
-                return true;
-            }
-            return false;
-        }
-
-        private void MaybeFillTankerModules(ModularCar car, BasePlayer player)
-        {
-            if (permission.UserHasPermission(player.UserIDString, PermissionAutoFillTankers)
-                && GetPlayerConfig(player).Settings.AutoFillTankers)
-            {
-                foreach (var module in car.AttachedModuleEntities)
-                {
-                    if (module is VehicleModuleStorage)
-                    {
-                        var container = (module as VehicleModuleStorage).GetContainer();
-                        if (container is LiquidContainer)
-                        {
-                            var liquidContainer = (container as LiquidContainer);
-
-                            // Remove existing liquid such as salt water
-                            var liquidItem = liquidContainer.GetLiquidItem();
-                            if (liquidItem != null)
-                            {
-                                liquidItem.RemoveFromContainer();
-                                liquidItem.Remove();
-                            }
-
-                            liquidContainer.inventory.AddItem(liquidContainer.defaultLiquid, liquidContainer.maxStackSize);
-
-                            if (pluginConfig.EnableEffects)
-                                Effect.server.Run(TankerFilledEffectPrefab, module.transform.position);
-                        }
-                    }
-                }
-            }
-        }
-
-        private void DismountAllPlayersFromCar(ModularCar car)
-        {
-            // Dismount seated players
-            if (car.AnyMounted())
-                car.DismountAllPlayers();
-
-            // Dismount players standing on flatbed modules
-            foreach (var module in car.AttachedModuleEntities)
-                foreach (var child in module.children.ToList())
-                    if (child is BasePlayer)
-                        (child as BasePlayer).SetParent(null, worldPositionStays: true);
-        }
-
-        private List<int> GetCarModuleIDs(ModularCar car)
-        {
-            var moduleIDs = new List<int>();
-
-            for (int socketIndex = 0; socketIndex < car.TotalSockets; socketIndex++)
-            {
-                BaseVehicleModule module;
-                if (car.TryGetModuleAt(socketIndex, out module) && module.FirstSocketIndex == socketIndex)
-                    moduleIDs.Add(module.AssociatedItemDef.itemid);
-                else
-                    // Empty socket, use 0 to represent this
-                    moduleIDs.Add(0);
-            }
-
-            return moduleIDs;
-        }
-
         private void UpdateCarModules(ModularCar car, List<int> moduleIDs, bool shouldCleanupEngineParts = false)
         {
             // Phase 1: Remove all modules that don't match the desired preset
@@ -963,6 +879,52 @@ namespace Oxide.Plugins
             }
         }
 
+        private SpawnSettings MakeSpawnSettings(List<int> moduleIDs)
+        {
+            var presetConfig = ScriptableObject.CreateInstance<ModularCarPresetConfig>();
+            presetConfig.socketItemDefs = moduleIDs.Select(id =>
+            {
+                // We are using 0 to represent an empty socket
+                if (id == 0) return null;
+                return ItemManager.FindItemDefinition(id)?.GetComponent<ItemModVehicleModule>();
+            }).ToArray();
+
+            return new SpawnSettings
+            {
+                useSpawnSettings = true,
+                minStartHealthPercent = 100,
+                maxStartHealthPercent = 100,
+                configurationOptions = new ModularCarPresetConfig[] { presetConfig }
+            };
+        }
+
+        private void DismountAllPlayersFromCar(ModularCar car)
+        {
+            // Dismount seated players
+            if (car.AnyMounted())
+                car.DismountAllPlayers();
+
+            // Dismount players standing on flatbed modules
+            foreach (var module in car.AttachedModuleEntities)
+                foreach (var child in module.children.ToList())
+                    if (child is BasePlayer)
+                        (child as BasePlayer).SetParent(null, worldPositionStays: true);
+        }
+
+        private bool MaybeAutoLockCarForPlayer(ModularCar car, BasePlayer player)
+        {
+            if (permission.UserHasPermission(player.UserIDString, PermissionAutoKeyLock) && 
+                GetPlayerConfig(player).Settings.AutoKeyLock &&
+                !car.carLock.HasALock &&
+                car.carLock.CanHaveALock())
+            {
+                car.carLock.AddALock();
+                car.carLock.TryCraftAKey(player, free: true);
+                return true;
+            }
+            return false;
+        }
+
         private void MaybeRemoveMatchingKeysFromPlayer(BasePlayer player, ModularCar car)
         {
             if (pluginConfig.DeleteKeyOnDespawn && car.carLock.HasALock)
@@ -975,28 +937,52 @@ namespace Oxide.Plugins
             }
         }
 
-        private PlayerConfig GetPlayerConfig(BasePlayer player)
+        private void MaybeFillTankerModules(ModularCar car, BasePlayer player)
         {
-            if (PlayerConfigsMap.ContainsKey(player.userID))
-                return PlayerConfigsMap[player.userID];
+            if (permission.UserHasPermission(player.UserIDString, PermissionAutoFillTankers)
+                && GetPlayerConfig(player).Settings.AutoFillTankers)
+            {
+                foreach (var module in car.AttachedModuleEntities)
+                {
+                    if (module is VehicleModuleStorage)
+                    {
+                        var container = (module as VehicleModuleStorage).GetContainer();
+                        if (container is LiquidContainer)
+                        {
+                            var liquidContainer = (container as LiquidContainer);
 
-            PlayerConfig config = PlayerConfig.Get(Name, player.userID);
-            PlayerConfigsMap.Add(player.userID, config);
-            return config;
+                            // Remove existing liquid such as salt water
+                            var liquidItem = liquidContainer.GetLiquidItem();
+                            if (liquidItem != null)
+                            {
+                                liquidItem.RemoveFromContainer();
+                                liquidItem.Remove();
+                            }
+
+                            liquidContainer.inventory.AddItem(liquidContainer.defaultLiquid, liquidContainer.maxStackSize);
+
+                            if (pluginConfig.EnableEffects)
+                                Effect.server.Run(TankerFilledEffectPrefab, module.transform.position);
+                        }
+                    }
+                }
+            }
         }
 
-        private Vector3 GetIdealCarPosition(BasePlayer player)
+        private void MaybePlayCarRepairEffects(ModularCar car)
         {
-            Quaternion playerRotation = player.GetNetworkRotation();
-            Vector3 forward = playerRotation * Vector3.forward;
-            Vector3 straight = Vector3.Cross(Vector3.Cross(Vector3.up, forward), Vector3.up).normalized;
-            Vector3 position = player.transform.position + straight * 3f;
-            position.y = player.transform.position.y + 1f;
-            return position;
+            if (!pluginConfig.EnableEffects) return;
+
+            if (car.AttachedModuleEntities.Count > 0)
+                foreach (var module in car.AttachedModuleEntities)
+                    Effect.server.Run(RepairEffectPrefab, module.transform.position);
+            else
+                Effect.server.Run(RepairEffectPrefab, car.transform.position);
         }
 
-        private Quaternion GetIdealCarRotation(BasePlayer player) =>
-            Quaternion.Euler(0, player.GetNetworkRotation().eulerAngles.y - 90, 0);
+        #endregion
+
+        #region Helper Classes
 
         internal class CooldownManager
         {
@@ -1026,6 +1012,18 @@ namespace Oxide.Plugins
         #endregion
 
         #region Localization
+
+        private string BooleanToLocalizedString(BasePlayer player, bool value) =>
+            value ? GetMessage(player, "Generic.Setting.On") : GetMessage(player, "Generic.Setting.Off");
+
+        private void ChatMessage(BasePlayer player, string messageName, params object[] args) =>
+            PrintToChat(player, GetMessage(player, messageName), args);
+
+        private string GetMessage(BasePlayer player, string messageName, params object[] args)
+        {
+            var message = lang.GetMessage(messageName, this, player.UserIDString);
+            return args.Length > 0 ? string.Format(message, args) : message;
+        }
 
         protected override void LoadDefaultMessages()
         {
@@ -1175,13 +1173,14 @@ namespace Oxide.Plugins
             }
         }
 
-        internal class PlayerSettings
+        private PlayerConfig GetPlayerConfig(BasePlayer player)
         {
-            [JsonProperty("AutoKeyLock")]
-            public bool AutoKeyLock = false;
+            if (PlayerConfigsMap.ContainsKey(player.userID))
+                return PlayerConfigsMap[player.userID];
 
-            [JsonProperty("AutoFillTankers")]
-            public bool AutoFillTankers = false;
+            PlayerConfig config = PlayerConfig.Get(Name, player.userID);
+            PlayerConfigsMap.Add(player.userID, config);
+            return config;
         }
 
         internal class PlayerConfig
@@ -1256,6 +1255,15 @@ namespace Oxide.Plugins
             {
                 Interface.Oxide.DataFileSystem.WriteObject(Filepath, this);
             }
+        }
+
+        internal class PlayerSettings
+        {
+            [JsonProperty("AutoKeyLock")]
+            public bool AutoKeyLock = false;
+
+            [JsonProperty("AutoFillTankers")]
+            public bool AutoFillTankers = false;
         }
 
         #endregion
