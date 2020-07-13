@@ -11,7 +11,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.4.3")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.4.4")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : RustPlugin
     {
@@ -336,14 +336,28 @@ namespace Oxide.Plugins
             if (!VerifyCarIsNotDead(player, car)) return;
             if (!VerifyOffCooldown(FixCarCooldowns, player)) return;
 
-            var shouldCleanupEngineParts = permission.UserHasPermission(player.UserIDString, PermissionEnginePartsCleanup);
-            UpdateCarModules(car, GetCarModuleIDs(car), shouldCleanupEngineParts);
-            car.AdminFixUp(GetPlayerEnginePartsTier(player));
+            var enginePartsTier = GetPlayerEnginePartsTier(player);
+            if (enginePartsTier > 0)
+            {
+                if (!permission.UserHasPermission(player.UserIDString, PermissionEnginePartsCleanup))
+                    // Drop engine parts or else the `car.AdminFixUp()` method is going to delete them
+                    DropCarEngineParts(car);
+
+                car.AdminFixUp(enginePartsTier);
+            }
+            else
+            {
+                // Manually repair and fuel the car so we don't have to drop engine parts
+                // We are avoiding using `car.AdminFixUp()` since it deletes engine parts which complicates things
+                RepairCar(car);
+                car.fuelSystem.AdminFillFuel();
+            }
+
             MaybeFillTankerModules(car, player);
             FixCarCooldowns.UpdateLastUsedForPlayer(player);
 
-            ChatMessage(player, "Command.Fix.Success");
             MaybePlayCarRepairEffects(car);
+            ChatMessage(player, "Command.Fix.Success");
         }
 
         private void SubCommand_FetchCar(BasePlayer player, string[] args)
@@ -879,6 +893,13 @@ namespace Oxide.Plugins
             }
         }
 
+        private void DropCarEngineParts(ModularCar car)
+        {
+            foreach (var module in car.AttachedModuleEntities)
+                if (module is VehicleModuleEngine)
+                    (module as VehicleModuleEngine).GetContainer().DropItems();
+        }
+
         private SpawnSettings MakeSpawnSettings(List<int> moduleIDs)
         {
             var presetConfig = ScriptableObject.CreateInstance<ModularCarPresetConfig>();
@@ -896,6 +917,32 @@ namespace Oxide.Plugins
                 maxStartHealthPercent = 100,
                 configurationOptions = new ModularCarPresetConfig[] { presetConfig }
             };
+        }
+
+        private void RepairCar(ModularCar car)
+        {
+            // Repair the car
+            car.SetHealth(car.MaxHealth());
+            car.SendNetworkUpdate();
+
+            foreach (var module in car.AttachedModuleEntities)
+            {
+                // Repair each module
+                module.SetHealth(module.MaxHealth());
+                module.SendNetworkUpdate();
+
+                if (module is VehicleModuleEngine)
+                {
+                    // Repair all engine parts
+                    var engineStorage = (module as VehicleModuleEngine).GetContainer() as EngineStorage;
+                    for (var i = 0; i < engineStorage.inventory.capacity; i++)
+                    {
+                        var item = engineStorage.inventory.GetSlot(i);
+                        if (item != null)
+                            item.condition = item.maxCondition;
+                    }
+                }
+            }
         }
 
         private void DismountAllPlayersFromCar(ModularCar car)

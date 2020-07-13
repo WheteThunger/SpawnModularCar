@@ -12,7 +12,7 @@ When a modular car is spawned, it will be at full health and contain max fuel. A
 The spawn position is relative to the player so that they are on the driver side within mount distance of the middle modules.
 
 ### Other commands
-- `/mycar fix` -- Fix your car. This repairs it, restores its fuel, and replaces all engine parts.
+- `/mycar fix` -- Fix your car. This repairs it, restores its fuel and repairs engine parts. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, engine parts will be replaced instead.
 - `/mycar fetch` -- Teleport your car to you. Uprights if it was flipped. Not allowed when the car is on a lift because that can cause issues, unless at least one seat is occupied and the plugin is configured with `CanFetchWhileOccupied: true`.
 - `/mycar destroy` -- Destroy your car, allowing you to spawn a new one.
 - `/mycar autolock` -- Toggles AutoLock. While ON, spawning your car or loading a preset will automatically create a lock and add a matching key to your inventory. Note: This only happens if the car has at least one seating module.
