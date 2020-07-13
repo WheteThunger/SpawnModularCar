@@ -11,7 +11,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.4.4")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.4.5")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : RustPlugin
     {
@@ -31,7 +31,6 @@ namespace Oxide.Plugins
         private const string PermissionEnginePartsTier1 = "spawnmodularcar.engineparts.tier1";
         private const string PermissionEnginePartsTier2 = "spawnmodularcar.engineparts.tier2";
         private const string PermissionEnginePartsTier3 = "spawnmodularcar.engineparts.tier3";
-        private const string PermissionEnginePartsCleanup = "spawnmodularcar.engineparts.cleanup";
 
         private const string PermissionFix = "spawnmodularcar.fix";
         private const string PermissionFetch = "spawnmodularcar.fetch";
@@ -76,7 +75,6 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermissionEnginePartsTier1, this);
             permission.RegisterPermission(PermissionEnginePartsTier2, this);
             permission.RegisterPermission(PermissionEnginePartsTier3, this);
-            permission.RegisterPermission(PermissionEnginePartsCleanup, this);
 
             permission.RegisterPermission(PermissionFix, this);
             permission.RegisterPermission(PermissionFetch, this);
@@ -339,10 +337,7 @@ namespace Oxide.Plugins
             var enginePartsTier = GetPlayerEnginePartsTier(player);
             if (enginePartsTier > 0)
             {
-                if (!permission.UserHasPermission(player.UserIDString, PermissionEnginePartsCleanup))
-                    // Drop engine parts or else the `car.AdminFixUp()` method is going to delete them
-                    DropCarEngineParts(car);
-
+                DropCarEnginePartsAboveTierAndDeleteRest(car, enginePartsTier);
                 car.AdminFixUp(enginePartsTier);
             }
             else
@@ -403,12 +398,7 @@ namespace Oxide.Plugins
             if (!pluginConfig.CanDespawnOccupied && !VerifyCarNotOccupied(player, car)) return;
             
             MaybeRemoveMatchingKeysFromPlayer(player, car);
-
-            // Parts will be dropped automatically if not deleted
-            if (permission.UserHasPermission(player.UserIDString, PermissionEnginePartsCleanup))
-                foreach (var moduleEntity in car.AttachedModuleEntities)
-                    if (moduleEntity != null && moduleEntity is VehicleModuleEngine)
-                        (moduleEntity as VehicleModuleEngine).GetContainer().inventory.Kill();
+            DropCarEnginePartsAboveTierAndDeleteRest(car, GetPlayerEnginePartsTier(player));
 
             car.Kill();
         }
@@ -512,11 +502,12 @@ namespace Oxide.Plugins
                 return;
             }
 
-            var shouldCleanupEngineParts = permission.UserHasPermission(player.UserIDString, PermissionEnginePartsCleanup);
-            UpdateCarModules(car, preset.ModuleIDs, shouldCleanupEngineParts);
+            var enginePartsTier = GetPlayerEnginePartsTier(player);
+            DropCarEnginePartsAboveTierAndDeleteRest(car, enginePartsTier);
+            UpdateCarModules(car, preset.ModuleIDs);
 
             NextTick(() => {
-                car.AdminFixUp(GetPlayerEnginePartsTier(player));
+                car.AdminFixUp(enginePartsTier);
                 MaybeFillTankerModules(car, player);
 
                 if (car.IsLockable && !car.carLock.CanHaveALock())
@@ -850,7 +841,7 @@ namespace Oxide.Plugins
             });
         }
 
-        private void UpdateCarModules(ModularCar car, List<int> moduleIDs, bool shouldCleanupEngineParts = false)
+        private void UpdateCarModules(ModularCar car, List<int> moduleIDs)
         {
             // Phase 1: Remove all modules that don't match the desired preset
             // This is done first since some modules take up two sockets
@@ -858,20 +849,9 @@ namespace Oxide.Plugins
             {
                 var desiredItemID = moduleIDs[socketIndex];
                 var existingItem = car.Inventory.ModuleContainer.GetSlot(socketIndex);
-                if (existingItem == null) continue;
-
-                var moduleEntity = car.GetModuleForItem(existingItem);
-                var isEngineModule = moduleEntity != null && moduleEntity is VehicleModuleEngine;
-
-                if (isEngineModule && !shouldCleanupEngineParts)
-                    (moduleEntity as VehicleModuleEngine).GetContainer().DropItems();
-
-                if (existingItem.info.itemid != desiredItemID)
+                
+                if (existingItem != null && existingItem.info.itemid != desiredItemID)
                 {
-                    // Only have to do this when removing the module since it's done automatically otherwise
-                    if (isEngineModule && shouldCleanupEngineParts)
-                        (moduleEntity as VehicleModuleEngine).GetContainer().inventory.Kill();
-
                     existingItem.RemoveFromContainer();
                     existingItem.Remove();
                 }
@@ -884,20 +864,42 @@ namespace Oxide.Plugins
                 var existingItem = car.Inventory.ModuleContainer.GetSlot(socketIndex);
 
                 // We are using 0 to represent an empty socket which we skip
-                if (existingItem != null || desiredItemID == 0) continue;
-
-                var moduleItem = ItemManager.CreateByItemID(desiredItemID);
-                if (moduleItem == null) continue;
-
-                car.TryAddModule(moduleItem, socketIndex);
+                if (existingItem == null && desiredItemID != 0)
+                {
+                    var moduleItem = ItemManager.CreateByItemID(desiredItemID);
+                    if (moduleItem != null)
+                        car.TryAddModule(moduleItem, socketIndex);
+                }
             }
         }
 
-        private void DropCarEngineParts(ModularCar car)
+        private void DropCarEnginePartsAboveTierAndDeleteRest(ModularCar car, int tier)
         {
             foreach (var module in car.AttachedModuleEntities)
+            {
                 if (module is VehicleModuleEngine)
-                    (module as VehicleModuleEngine).GetContainer().DropItems();
+                {
+                    var engineStorage = (module as VehicleModuleEngine).GetContainer() as EngineStorage;
+                    
+                    // Delete all engine parts at or below the desired quality
+                    for (var i = 0; i < engineStorage.inventory.capacity; i++)
+                    {
+                        var item = engineStorage.inventory.GetSlot(i);
+                        if (item != null)
+                        {
+                            var component = item.info.GetComponent<ItemModEngineItem>();
+                            if (component != null && component.tier <= tier)
+                            {
+                                item.RemoveFromContainer();
+                                item.Remove();
+                            }
+                        }
+                    }
+
+                    // Then drop the remaining items which are above the allowed quality
+                    engineStorage.DropItems();
+                }
+            }
         }
 
         private SpawnSettings MakeSpawnSettings(List<int> moduleIDs)

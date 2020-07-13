@@ -12,7 +12,7 @@ When a modular car is spawned, it will be at full health and contain maximum fue
 The spawn position is relative to the player so that they are on the driver side and within mount distance of the middle modules.
 
 ### Other commands
-- `/mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoLock` setting. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, instead of engine parts being repaired, they will be replaced to the maximum quality you are allowed, with old engine parts being dropped or deleted depending on whether you have the `spawnmodularcar.engineparts.cleanup` permission.
+- `/mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoLock` setting. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, instead of engine parts being repaired, they will be replaced with the maximum quality you are allowed. Any engine parts already present of higher quality than you are allowed will be dropped to the ground.
 - `/mycar fetch` -- Teleport your car to you in an upright position. Not allowed when the car is on a lift because that can cause issues, unless at least one seat is occupied and the plugin is configured with `CanFetchWhileOccupied: true`.
 - `/mycar destroy` -- Destroy your car, allowing you to spawn a new one.
 - `/mycar autolock` -- Toggles AutoLock. While ON, spawning your car will automatically create a lock and add a matching key to your inventory. Note: This only happens if the car has at least one seating module.
@@ -26,7 +26,7 @@ Players can save custom module configurations, allowing them to spawn a car or u
 - `/mycar list` -- List your saved module configuration presets.
 - `/mycar save <name>` -- Save your car's current module configuration under the specified preset name.
 - `/mycar update <name>` -- Overwrite an existing preset with your car's current module configuration.
-- `/mycar load <name>` -- Load the specified preset onto your existing car, replacing any modules that don't match the preset. This also fixes the car according to the same rules as `/mycar fix`. Note: A lock will be removed if the preset doesn't support one due to having no seating modules. Loading a preset is not allowed if your current car is occupied or if it has a different number of sockets than the preset. Partial name matching supported.
+- `/mycar load <name>` -- Load the specified preset (partial name matching supported) onto your existing car, replacing any modules that don't match the preset. This also fixes the car according to the same rules as `/mycar fix`. Note: A lock will be removed if the preset has no seating modules. Loading a preset is not allowed if your current car is occupied or if it has a different number of sockets than the preset.
 - `/mycar rename <name> <new name>` -- Renames a preset.
 - `/mycar delete <name>` -- Delete the specified preset.
 
@@ -43,7 +43,6 @@ Granting the following permissions will cause the player's car to automatically 
 - `spawnmodularcar.engineparts.tier1` -- Spawn your car with low quality engine components.
 - `spawnmodularcar.engineparts.tier2` -- Spawn your car with medium quality engine components.
 - `spawnmodularcar.engineparts.tier3` -- Spawn your car with high quality engine components.
-- `spawnmodularcar.engineparts.cleanup` -- Delete engine components when using `/mycar destroy`, `/mycar fix` or `/mycar load`. If not granted, engine parts will be dropped instead. Recommended to be granted for all players that have the engine permissions above, in order to prevent spamming engine components. Does not stop engine parts from dropping when the car is destroyed by other means.
 
 Misc:
 - `spawnmodularcar.fix` -- Required to use `/mycar fix`.
