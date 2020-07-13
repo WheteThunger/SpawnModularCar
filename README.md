@@ -65,7 +65,8 @@ Misc:
 - `spawnmodularcar.autofilltankers` - Required to use automatic filling of tanker modules (i.e. `/mycar autofilltankers`).
 - `spawnmodularcar.underwater` -- Allows your car to be driven underwater (scuba gear is recommended). Note: Underwater driving is noticeably slower than on land.
 - `spawnmodularcar.autostartengine` -- Automatically and instantly start your car's engine when you get in.
-- `spawnmodularcar.presets` -- Allows the player to use, `save`, `update`, `load`, `rename` and `delete` presets.
+- `spawnmodularcar.presets` -- Allows you to spawn your car from a preset. Also enables the `save`, `update`, `rename` and `delete` preset commands.
+- `spawnmodularcar.presets.load` -- Allows the player to use the `load` preset command.
 
 # Configuration
 

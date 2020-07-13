@@ -11,7 +11,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.4.0")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.4.1")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : RustPlugin
     {
@@ -42,6 +42,7 @@ namespace Oxide.Plugins
         private const string PermissionAutoFillTankers = "spawnmodularcar.autofilltankers";
 
         private const string PermissionPresets = "spawnmodularcar.presets";
+        private const string PermissionPresetLoad = "spawnmodularcar.presets.load";
 
         private const string PrefabSockets2 = "assets/content/vehicles/modularcar/2module_car_spawned.entity.prefab";
         private const string PrefabSockets3 = "assets/content/vehicles/modularcar/3module_car_spawned.entity.prefab";
@@ -86,6 +87,7 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermissionAutoFillTankers, this);
 
             permission.RegisterPermission(PermissionPresets, this);
+            permission.RegisterPermission(PermissionPresetLoad, this);
 
             SpawnCarCooldowns = new CooldownManager(pluginConfig.Cooldowns.SpawnSeconds);
             FixCarCooldowns = new CooldownManager(pluginConfig.Cooldowns.FixSeconds);
@@ -239,7 +241,10 @@ namespace Oxide.Plugins
                 messages.Add(GetMessage(player, "Command.Help.ListPresets"));
                 messages.Add(GetMessage(player, "Command.Help.SavePreset"));
                 messages.Add(GetMessage(player, "Command.Help.UpdatePreset"));
-                messages.Add(GetMessage(player, "Command.Help.LoadPreset"));
+
+                if (permission.UserHasPermission(player.UserIDString, PermissionPresetLoad))
+                    messages.Add(GetMessage(player, "Command.Help.LoadPreset"));
+
                 messages.Add(GetMessage(player, "Command.Help.RenamePreset"));
                 messages.Add(GetMessage(player, "Command.Help.DeletePreset"));
             }
@@ -477,7 +482,7 @@ namespace Oxide.Plugins
 
         private void SubCommand_LoadPreset(BasePlayer player, string[] args)
         {
-            if (!VerifyPermissionAny(player, PermissionPresets)) return;
+            if (!VerifyPermissionAny(player, PermissionPresetLoad)) return;
 
             ModularCar car;
             if (!VerifyHasCar(player, out car)) return;
