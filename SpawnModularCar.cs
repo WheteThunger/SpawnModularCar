@@ -11,7 +11,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.4.1")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.4.2")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : RustPlugin
     {
@@ -336,23 +336,13 @@ namespace Oxide.Plugins
             if (!VerifyCarIsNotDead(player, car)) return;
             if (!VerifyOffCooldown(FixCarCooldowns, player)) return;
 
-            if (car.carLock.HasALock)
-            {
-                MaybeRemoveMatchingKeysFromPlayer(player, car);
-                car.RemoveLock();
-            }
-
             var shouldCleanupEngineParts = permission.UserHasPermission(player.UserIDString, PermissionEnginePartsCleanup);
             UpdateCarModules(car, GetCarModuleIDs(car), shouldCleanupEngineParts);
             car.AdminFixUp(GetPlayerEnginePartsTier(player));
             MaybeFillTankerModules(car, player);
             FixCarCooldowns.UpdateLastUsedForPlayer(player);
 
-            var chatMessages = new List<string> { GetMessage(player, "Command.Fix.Success") };
-            if (MaybeAutoLockCarForPlayer(car, player))
-                chatMessages.Add(GetMessage(player, "Command.LoadPreset.Success.Locked"));
-
-            PrintToChat(player, string.Join(" ", chatMessages));
+            ChatMessage(player, "Command.Fix.Success");
             MaybePlayCarRepairEffects(car);
         }
 

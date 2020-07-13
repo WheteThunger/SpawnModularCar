@@ -12,10 +12,10 @@ When a modular car is spawned, it will be at full health and contain max fuel. A
 The spawn position is relative to the player so that they are on the driver side within mount distance of the middle modules.
 
 ### Other commands
-- `/mycar fix` -- Fix your car. This repairs it, restores its fuel, replaces all engine parts, and removes the lock and any matching keys from your inventory (or replaces the lock and keys if you have AutoLock ON).
+- `/mycar fix` -- Fix your car. This repairs it, restores its fuel, and replaces all engine parts.
 - `/mycar fetch` -- Teleport your car to you. Uprights if it was flipped. Not allowed when the car is on a lift because that can cause issues, unless at least one seat is occupied and the plugin is configured with `CanFetchWhileOccupied: true`.
 - `/mycar destroy` -- Destroy your car, allowing you to spawn a new one.
-- `/mycar autolock` -- Toggles AutoLock. While ON, spawning your car, fixing it, or loading a preset will automatically create a new lock and add a matching key to your inventory. Note: This only happens if the car has at least one seating module.
+- `/mycar autolock` -- Toggles AutoLock. While ON, spawning your car or loading a preset will automatically create a new lock and add a matching key to your inventory. Note: This only happens if the car has at least one seating module.
 - `/mycar autofilltankers` -- Toggles AutoFillTankers. While ON, spawning your car, fixing it, or loading a preset will automatically fill any tanker modules to maximum capacity with fresh water. Any salt water in them will be removed.
 - `/mycar help` -- Print a list of available commands and their usage. Only shows commands allowed by your permissions.
 
@@ -93,7 +93,7 @@ Misc:
 - `CanFetchWhileOccupied` (`true` or `false`) -- Whether to allow players to fetch their car while it's occupied. Detects players in seating and flatbed modules.- `CanFetchWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to fetch their car while they are buildilng blocked.
 - `CanSpawnWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to spawn a car while they are building blocked.
 - `Cooldowns` -- Various cooldowns for balancing. These were primarily implemented to prevent spamming, so they are not tracked across plugin reloads or server restarts, so setting them very high (e.g., hours or days) may not always work as intended.
-- `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the player inventory when the player uses `/mycar destroy`, `/mycar fix` or `/mycar load`. This only applies if the car has a lock and the player has keys that fit that lock. Other keys, or matching keys in other locations will not be affected. I recommend this be set to `true`, especially if you are allowing players to use the automatic locking feature since it spawns extra keys which may otherwise clutter the inventory.
+- `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the player inventory when the player uses `/mycar destroy` or `/mycar load`. This only applies if the car has a lock and the player has keys that fit that lock. Other keys, or matching keys in other locations will not be affected. I recommend this be set to `true`, especially if you are allowing players to use the automatic locking feature since it spawns extra keys which may otherwise clutter the inventory.
 - `DismountPlayersOnFetch` (`true` or `false`) -- Whether to dismount all players from a car when it is fetched. Has no effect unless `CanFetchWhileOccupied` is also `true`.
 - `EnableEffects` (`true` or `false`) -- Enable audio and visual effects when spawning a car from a preset, using `/mycar fix` or `/mycar load`.
 
