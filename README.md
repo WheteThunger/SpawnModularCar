@@ -15,7 +15,7 @@ The spawn position is relative to the player so that they are on the driver side
 - `/mycar fix` -- Fix your car. This repairs it, restores its fuel, and replaces all engine parts.
 - `/mycar fetch` -- Teleport your car to you. Uprights if it was flipped. Not allowed when the car is on a lift because that can cause issues, unless at least one seat is occupied and the plugin is configured with `CanFetchWhileOccupied: true`.
 - `/mycar destroy` -- Destroy your car, allowing you to spawn a new one.
-- `/mycar autolock` -- Toggles AutoLock. While ON, spawning your car or loading a preset will automatically create a new lock and add a matching key to your inventory. Note: This only happens if the car has at least one seating module.
+- `/mycar autolock` -- Toggles AutoLock. While ON, spawning your car or loading a preset will automatically create a lock and add a matching key to your inventory. Note: This only happens if the car has at least one seating module.
 - `/mycar autofilltankers` -- Toggles AutoFillTankers. While ON, spawning your car, fixing it, or loading a preset will automatically fill any tanker modules to maximum capacity with fresh water. Any salt water in them will be removed.
 - `/mycar help` -- Print a list of available commands and their usage. Only shows commands allowed by your permissions.
 
@@ -38,8 +38,7 @@ Loading a preset is one of the more sophisticated features of this plugin. This 
 - Health and fuel are restored to maximum.
 - Engine components matching your permissions are automatically added to each engine module if applicable.
 - Tanker modules are filled with fresh water if the user has the permission.
-- The previous lock is removed. If you have any matching keys in their inventory, they are removed if the plugin is configured with `DeleteMatchingKeysFromPlayerInventoryOnDespawn: true`.
-- If you have AutoLock ON and the loaded preset has at least one seating module, a new lock is created and a matching key is added to your inventory.
+- If you have AutoLock ON and a lock is not already present, a lock is created automatically and a matching key is added to your inventory. Only applies if the loaded preset has at least one seating module.
 - Only the modules that don't match the desired configuration are replaced.
 
 Note: Loading a preset is not allowed if your current car is occupied or if the preset contains a different number of sockets than your current car.
@@ -93,7 +92,7 @@ Misc:
 - `CanFetchWhileOccupied` (`true` or `false`) -- Whether to allow players to fetch their car while it's occupied. Detects players in seating and flatbed modules.- `CanFetchWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to fetch their car while they are buildilng blocked.
 - `CanSpawnWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to spawn a car while they are building blocked.
 - `Cooldowns` -- Various cooldowns for balancing. These were primarily implemented to prevent spamming, so they are not tracked across plugin reloads or server restarts, so setting them very high (e.g., hours or days) may not always work as intended.
-- `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the player inventory when the player uses `/mycar destroy` or `/mycar load`. This only applies if the car has a lock and the player has keys that fit that lock. Other keys, or matching keys in other locations will not be affected. I recommend this be set to `true`, especially if you are allowing players to use the automatic locking feature since it spawns extra keys which may otherwise clutter the inventory.
+- `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the player inventory when the player uses `/mycar destroy` or when they use `/mycar load` and the lock is removed because the preset contains no seating modules. I recommend this be set to `true`, especially if you are allowing players to use the automatic locking feature since it spawns extra keys which may otherwise clutter the inventory.
 - `DismountPlayersOnFetch` (`true` or `false`) -- Whether to dismount all players from a car when it is fetched. Has no effect unless `CanFetchWhileOccupied` is also `true`.
 - `EnableEffects` (`true` or `false`) -- Enable audio and visual effects when spawning a car from a preset, using `/mycar fix` or `/mycar load`.
 
@@ -131,7 +130,6 @@ Misc:
   "Command.UpdatePreset.Success": "Updated <color=yellow>{0}</color> preset with current module configuration.",
   "Command.LoadPreset.Error.SocketCount": "Error: Unable to load <color=yellow>{0}</color> preset ({1} sockets) because your car has <color=yellow>{2}</color> sockets.",
   "Command.LoadPreset.Success": "Loaded <color=yellow>{0}</color> preset onto your car.",
-  "Command.LoadPreset.Success.Locked": "Locks were replaced and a key was added to your inventory.",
   "Command.DeletePreset.Success": "Deleted <color=yellow>{0}</color> preset.",
   "Command.RenamePreset.Error.Syntax": "Syntax: <color=yellow>/mycar rename <name> <new_name></color>",
   "Command.RenamePreset.Success": "Renamed <color=yellow>{0}</color> preset to <color=yellow>{1}</color>",

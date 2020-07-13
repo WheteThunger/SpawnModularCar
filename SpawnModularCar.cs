@@ -11,7 +11,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.4.2")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.4.3")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : RustPlugin
     {
@@ -498,12 +498,6 @@ namespace Oxide.Plugins
                 return;
             }
 
-            if (car.carLock.HasALock)
-            {
-                MaybeRemoveMatchingKeysFromPlayer(player, car);
-                car.RemoveLock();
-            }
-
             var shouldCleanupEngineParts = permission.UserHasPermission(player.UserIDString, PermissionEnginePartsCleanup);
             UpdateCarModules(car, preset.ModuleIDs, shouldCleanupEngineParts);
 
@@ -511,12 +505,14 @@ namespace Oxide.Plugins
                 car.AdminFixUp(GetPlayerEnginePartsTier(player));
                 MaybeFillTankerModules(car, player);
 
-                var chatMessages = new List<string> { GetMessage(player, "Command.LoadPreset.Success", preset.Name) };
-                if (MaybeAutoLockCarForPlayer(car, player))
-                    chatMessages.Add(GetMessage(player, "Command.LoadPreset.Success.Locked"));
+                if (car.IsLockable && !car.carLock.CanHaveALock())
+                {
+                    MaybeRemoveMatchingKeysFromPlayer(player, car);
+                    car.RemoveLock();
+                }
 
-                PrintToChat(player, string.Join(" ", chatMessages));
                 MaybePlayCarRepairEffects(car);
+                ChatMessage(player, "Command.LoadPreset.Success", preset.Name);
             });
 
             LoadPresetCooldowns.UpdateLastUsedForPlayer(player);
@@ -851,7 +847,8 @@ namespace Oxide.Plugins
         private bool MaybeAutoLockCarForPlayer(ModularCar car, BasePlayer player)
         {
             if (permission.UserHasPermission(player.UserIDString, PermissionAutoKeyLock) && 
-                GetPlayerConfig(player).Settings.AutoKeyLock && 
+                GetPlayerConfig(player).Settings.AutoKeyLock &&
+                !car.carLock.HasALock &&
                 car.carLock.CanHaveALock())
             {
                 car.carLock.AddALock();
@@ -1064,7 +1061,6 @@ namespace Oxide.Plugins
                 ["Command.UpdatePreset.Success"] = "Updated <color=yellow>{0}</color> preset with current module configuration.",
                 ["Command.LoadPreset.Error.SocketCount"] = "Error: Unable to load <color=yellow>{0}</color> preset ({1} sockets) because your car has <color=yellow>{2}</color> sockets.",
                 ["Command.LoadPreset.Success"] = "Loaded <color=yellow>{0}</color> preset onto your car.",
-                ["Command.LoadPreset.Success.Locked"] = "Locks were replaced and a key was added to your inventory.",
                 ["Command.DeletePreset.Success"] = "Deleted <color=yellow>{0}</color> preset.",
                 ["Command.RenamePreset.Error.Syntax"] = "Syntax: <color=yellow>/mycar rename <name> <new_name></color>",
                 ["Command.RenamePreset.Success"] = "Renamed <color=yellow>{0}</color> preset to <color=yellow>{1}</color>",
