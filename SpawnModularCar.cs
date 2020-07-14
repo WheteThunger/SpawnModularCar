@@ -11,7 +11,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.4.5")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.4.6")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : RustPlugin
     {
@@ -130,6 +130,16 @@ namespace Oxide.Plugins
                 if (vehicle is ModularCar)
                 {
                     var car = vehicle as ModularCar;
+
+                    if (car.waterSample.transform.parent != null && 
+                        car.OwnerID != 0 &&
+                        permission.UserHasPermission(car.OwnerID.ToString(), PermissionDriveUnderwater))
+                    {
+                        // Water sample needs to be updated to enable underwater driving
+                        // This is necessary because sometimes the water sample is altered, such as on server restart
+                        EnableCarUnderwater(car);
+                    }
+
                     if (car.OwnerID == player.userID && car.CanRunEngines())
                         car.FinishStartingEngine();
                 }
@@ -820,10 +830,7 @@ namespace Oxide.Plugins
             car.Spawn();
 
             if (permission.UserHasPermission(player.UserIDString, PermissionDriveUnderwater))
-            {
-                car.waterSample.transform.SetParent(null);
-                car.waterSample.transform.SetPositionAndRotation(Vector3.up * 1000, new Quaternion());
-            }
+                EnableCarUnderwater(car);
 
             car.OwnerID = player.userID;
             pluginData.playerCars.Add(player.UserIDString, car.net.ID);
@@ -837,6 +844,12 @@ namespace Oxide.Plugins
                 MaybeAutoLockCarForPlayer(car, player);
                 onReady?.Invoke(car);
             });
+        }
+
+        private void EnableCarUnderwater(ModularCar car)
+        {
+            car.waterSample.transform.SetParent(null);
+            car.waterSample.transform.SetPositionAndRotation(Vector3.up * 1000, new Quaternion());
         }
 
         private void UpdateCarModules(ModularCar car, List<int> moduleIDs)
