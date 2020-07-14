@@ -732,10 +732,8 @@ namespace Oxide.Plugins
 
         private Vector3 GetIdealCarPosition(BasePlayer player)
         {
-            Quaternion playerRotation = player.GetNetworkRotation();
-            Vector3 forward = playerRotation * Vector3.forward;
-            Vector3 straight = Vector3.Cross(Vector3.Cross(Vector3.up, forward), Vector3.up).normalized;
-            Vector3 position = player.transform.position + straight * 3f;
+            Vector3 forward = player.GetNetworkRotation() * Vector3.forward;
+            Vector3 position = player.transform.position + forward.normalized * 3f;
             position.y = player.transform.position.y + 1f;
             return position;
         }
