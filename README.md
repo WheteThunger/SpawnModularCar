@@ -77,7 +77,8 @@ Misc:
 ```
 
 - `CanDespawnWhileOccupied` (`true` or `false`) -- Whether to allow players to use `/mycar destroy` while their car is occupied. Detects players in seating and flatbed modules.
-- `CanFetchWhileOccupied` (`true` or `false`) -- Whether to allow players to fetch their car while it's occupied. Detects players in seating and flatbed modules.- `CanFetchWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to fetch their car while they are buildilng blocked.
+- `CanFetchWhileOccupied` (`true` or `false`) -- Whether to allow players to fetch their car while it's occupied. Detects players in seating and flatbed modules.
+- `CanFetchWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to fetch their car while they are buildilng blocked.
 - `CanSpawnWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to spawn a car while they are building blocked.
 - `Cooldowns` -- Various cooldowns for balancing. These were primarily implemented to prevent spamming, so they are not tracked across plugin reloads or server restarts, so setting them very high (e.g., hours or days) may not always work as intended.
 - `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the player inventory when the player uses `/mycar destroy` or when they use `/mycar load` and the lock is removed because the preset contains no seating modules. I recommend this be set to `true`, especially if you are allowing players to use the automatic locking feature since it spawns extra keys which may otherwise clutter the inventory.
