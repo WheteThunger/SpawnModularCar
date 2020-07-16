@@ -13,7 +13,7 @@ The spawn position is relative to the player so that they are on the driver side
 
 ### Other commands
 - `/mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoLock` setting. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, instead of engine parts being repaired, they will be replaced with the maximum quality you are allowed. Any engine parts already present of higher quality than you are allowed will be dropped to the ground.
-- `/mycar fetch` -- Teleport your car to you in an upright position. Not allowed when the car is on a lift because that can cause issues, unless at least one seat is occupied and the plugin is configured with `CanFetchWhileOccupied: true`.
+- `/mycar fetch` -- Teleport your car to you in an upright position.
 - `/mycar destroy` -- Destroy your car, allowing you to spawn a new one.
 - `/mycar autolock` -- Toggles AutoLock. While ON, spawning your car will automatically create a lock and add a matching key to your inventory. Note: This only happens if the car has at least one seating module.
 - `/mycar autofilltankers` -- Toggles AutoFillTankers. While ON, spawning your car, fixing it, or loading a preset will automatically fill any tanker modules to maximum capacity with fresh water. Any salt water in them will be removed.
@@ -109,8 +109,8 @@ Misc:
   "Command.Spawn.Success": "Here is your modular car.",
   "Command.Spawn.Success.Locked": "A matching key was added to your inventory.",
   "Command.Spawn.Success.Preset": "Here is your modular car from preset <color=yellow>{0}</color>.",
-  "Command.Fetch.Error.CarOnLift": "Error: Cannot fetch your car while it's on a lift.",
-  "Command.Fetch.Error.CarOnLift.Help": "You can use <color=yellow>/mycar destroy</color> to destroy it.",
+  "Command.Fetch.Error.StuckOnLift": "Error: Unable to fetch your car from its lift.",
+  "Command.Fetch.Error.StuckOnLift.Help": "You can use <color=yellow>/mycar destroy</color> to destroy it.",
   "Command.Fetch.Success": "Here is your modular car.",
   "Command.Fix.Success": "Your car was fixed.",
   "Command.SavePreset.Error.TooManyPresets": "Error: You may not have more than <color=yellow>{0}</color> presets. Please delete another preset and try again. See <color=yellow>/mycar help</color>.",

@@ -11,7 +11,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.4.6")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.4.7")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : RustPlugin
     {
@@ -372,22 +372,19 @@ namespace Oxide.Plugins
             ModularCar car;
             if (!VerifyHasCar(player, out car)) return;
             if (!pluginConfig.CanFetchOccupied && !VerifyCarNotOccupied(player, car)) return;
+            if (!VerifyOffCooldown(FetchCarCooldowns, player)) return;
+            if (!pluginConfig.CanFetchBuildingBlocked && !VerifyNotBuildingBlocked(player)) return;
 
             // This is a hacky way to determine that the car is on a lift
-            // Moving a car that is on a lift results in buggy behavior
-            // Ideally we could remove it from the lift instead of preventing the fetch
-            if (car.rigidBody.isKinematic)
+            if (car.rigidBody.isKinematic && !TryReleaseCarFromLift(car))
             {
-                var messages = new List<String> { lang.GetMessage("Command.Fetch.Error.CarOnLift", this, player.UserIDString) };
+                var messages = new List<String> { lang.GetMessage("Command.Fetch.Error.StuckOnLift", this, player.UserIDString) };
                 if (permission.UserHasPermission(player.UserIDString, PermissionDespawn))
-                    messages.Add(lang.GetMessage("Command.Fetch.Error.CarOnLift.Help", this, player.UserIDString));
+                    messages.Add(lang.GetMessage("Command.Fetch.Error.StuckOnLift.Help", this, player.UserIDString));
 
                 PrintToChat(player, string.Join(" ", messages));
                 return;
             }
-
-            if (!VerifyOffCooldown(FetchCarCooldowns, player)) return;
-            if (!pluginConfig.CanFetchBuildingBlocked && !VerifyNotBuildingBlocked(player)) return;
 
             if (pluginConfig.DismountPlayersOnFetch)
                 DismountAllPlayersFromCar(car);
@@ -958,6 +955,29 @@ namespace Oxide.Plugins
             }
         }
 
+        private bool TryReleaseCarFromLift(ModularCar car)
+        {
+            RaycastHit hitInfo;
+            // This isn't perfect as it can hit other deployables such as rugs
+            if (!Physics.SphereCast(car.transform.position + Vector3.up, 1f, Vector3.down, out hitInfo, 1f)) return false;
+
+            var lift = RaycastHitEx.GetEntity(hitInfo) as ModularCarGarage;
+            if (lift == null || lift.carOccupant != car) return false;
+
+            // Sometimes the lift grabs the car back after it's released, so we check and re-release a few times
+            // This avoids an infinite loop where the car is fetched back onto the same lift
+            Timer timerCheckOccupied = null;
+            timerCheckOccupied = timer.Repeat(0.1f, 5, () =>
+            {
+                if (lift != null && car != null && lift.carOccupant == car)
+                    lift.ReleaseOccupant();
+                else
+                    timerCheckOccupied.Destroy();
+            });
+
+            return true;
+        }
+
         private void DismountAllPlayersFromCar(ModularCar car)
         {
             // Dismount seated players
@@ -1109,8 +1129,8 @@ namespace Oxide.Plugins
                 ["Command.Spawn.Success"] = "Here is your modular car.",
                 ["Command.Spawn.Success.Locked"] = "A matching key was added to your inventory.",
                 ["Command.Spawn.Success.Preset"] = "Here is your modular car from preset <color=yellow>{0}</color>.",
-                ["Command.Fetch.Error.CarOnLift"] = "Error: Cannot fetch your car while it's on a lift.",
-                ["Command.Fetch.Error.CarOnLift.Help"] = "You can use <color=yellow>/mycar destroy</color> to destroy it.",
+                ["Command.Fetch.Error.StuckOnLift"] = "Error: Unable to fetch your car from its lift.",
+                ["Command.Fetch.Error.StuckOnLift.Help"] = "You can use <color=yellow>/mycar destroy</color> to destroy it.",
                 ["Command.Fetch.Success"] = "Here is your modular car.",
                 ["Command.Fix.Success"] = "Your car was fixed.",
                 ["Command.SavePreset.Error.TooManyPresets"] = "Error: You may not have more than <color=yellow>{0}</color> presets. Please delete another preset and try again. See <color=yellow>/mycar help</color>.",
