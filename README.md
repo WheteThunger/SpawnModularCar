@@ -7,12 +7,13 @@
 - `/mycar <2|3|4>` -- Spawn a random modular car with the specified number of sockets.
 - `/mycar <name>` -- Spawn a modular car from the specified preset. Partial name matching supported. See presets section for more details.
 
-When a modular car is spawned, it will be at full health and contain maximum fuel. Additionally, depending on your granted permissions, all tanker modules may be automatically filled with fresh water, and all engine modules may be automatically filled with the corresponding quality of engine components.
-
-The spawn position is relative to the player so that they are on the driver side and within mount distance of the middle modules.
+When a modular car is spawned, it will be at full health and contain maximum fuel. Additionally, depending on your granted permissions and personal settings:
+- It may be automatically locked, with a matching key added to your inventory.
+- All tanker modules may be automatically filled with fresh water.
+- All engine modules may be automatically filled with your highest allowed quality of engine components.
 
 ### Other commands
-- `/mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoLock` setting. Engine parts will also be repaired. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, missing engine parts are added, and lower quality parts are replaced with the maximum you quality you are allowed.
+- `/mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoLock` setting. Engine components will also be repaired. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, missing engine components are added, and lower quality components are replaced with the maximum quality you are allowed.
 - `/mycar fetch` -- Teleport your car to you in an upright position.
 - `/mycar destroy` -- Destroy your car, allowing you to spawn a new one.
 - `/mycar autolock` -- Toggles AutoLock. While ON, spawning your car will automatically create a lock and add a matching key to your inventory. Note: This only happens if the car has at least one seating module.
@@ -26,7 +27,7 @@ Players can save custom module configurations, allowing them to spawn a car or u
 - `/mycar list` -- List your saved module configuration presets.
 - `/mycar save <name>` -- Save your car's current module configuration under the specified preset name.
 - `/mycar update <name>` -- Overwrite an existing preset with your car's current module configuration.
-- `/mycar load <name>` -- Load the specified preset (partial name matching supported) onto your existing car, replacing any modules that don't match the preset. This also fixes the car according to the same rules as `/mycar fix`. Note: A lock will be removed if the preset has no seating modules. Loading a preset is not allowed if your current car is occupied or if it has a different number of sockets than the preset. Additionally, if an engine module is replaced with a different module, any parts in that engine of higher quality than you are allowed by your `spawnmodularcar.engineparts.*` permissions will be dropped to the ground.
+- `/mycar load <name>` -- Load the specified preset (partial name matching supported) onto your existing car, replacing any modules that don't match the preset. This also fixes the car according to the same rules as `/mycar fix`. Note: A lock will be removed if the preset has no seating modules. Loading a preset is not allowed if your current car is occupied or if it has a different number of sockets than the preset. Additionally, if an engine module is replaced with a different module, any components in that engine of higher quality than you are allowed by your `spawnmodularcar.engineparts.*` permissions will be dropped to the ground.
 - `/mycar rename <name> <new name>` -- Renames a preset.
 - `/mycar delete <name>` -- Delete the specified preset.
 
