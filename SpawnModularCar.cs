@@ -11,7 +11,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.4.7")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.4.8")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : RustPlugin
     {
@@ -124,26 +124,20 @@ namespace Oxide.Plugins
 
         private void OnEntityMounted(BaseMountable mountable, BasePlayer player)
         {
-            if (mountable is BaseVehicleMountPoint)
+            var car = (mountable as BaseVehicleMountPoint).GetVehicleParent() as ModularCar;
+            if (car == null || !pluginData.playerCars.ContainsValue(car.net.ID)) return;
+
+            if (car.waterSample.transform.parent != null &&
+                car.OwnerID != 0 &&
+                permission.UserHasPermission(car.OwnerID.ToString(), PermissionDriveUnderwater))
             {
-                var vehicle = (mountable as BaseVehicleMountPoint).GetVehicleParent();
-                if (vehicle is ModularCar)
-                {
-                    var car = vehicle as ModularCar;
-
-                    if (car.waterSample.transform.parent != null && 
-                        car.OwnerID != 0 &&
-                        permission.UserHasPermission(car.OwnerID.ToString(), PermissionDriveUnderwater))
-                    {
-                        // Water sample needs to be updated to enable underwater driving
-                        // This is necessary because sometimes the water sample is altered, such as on server restart
-                        EnableCarUnderwater(car);
-                    }
-
-                    if (car.OwnerID == player.userID && car.CanRunEngines())
-                        car.FinishStartingEngine();
-                }
+                // Water sample needs to be updated to enable underwater driving
+                // This is necessary because sometimes the water sample is altered, such as on server restart
+                EnableCarUnderwater(car);
             }
+
+            if (car.OwnerID == player.userID && car.CanRunEngines())
+                car.FinishStartingEngine();
         }
         #endregion
 
