@@ -61,11 +61,11 @@ namespace Oxide.Plugins
 
         #region Hooks
 
-        private void Loaded()
+        private void Init()
         {
             pluginInstance = this;
 
-            pluginData = Interface.Oxide.DataFileSystem.ReadObject<PluginData>("SpawnModularCar");
+            pluginData = Interface.Oxide.DataFileSystem.ReadObject<PluginData>(Name);
             pluginConfig = Config.ReadObject<PluginConfig>();
 
             permission.RegisterPermission(PermissionSpawnSockets2, this);
@@ -95,13 +95,13 @@ namespace Oxide.Plugins
 
         private void Unload()
         {
-            Interface.Oxide.DataFileSystem.WriteObject("SpawnModularCar", pluginData);
+            Interface.Oxide.DataFileSystem.WriteObject(Name, pluginData);
         }
 
         private void OnNewSave(string filename)
         {
             pluginData.playerCars.Clear();
-            Interface.Oxide.DataFileSystem.WriteObject("SpawnModularCar", pluginData);
+            Interface.Oxide.DataFileSystem.WriteObject(Name, pluginData);
         }
 
         private void OnEntityKill(ModularCar car)
