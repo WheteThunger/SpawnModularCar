@@ -11,7 +11,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.4.8")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.4.9")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : RustPlugin
     {
@@ -338,20 +338,7 @@ namespace Oxide.Plugins
             if (!VerifyCarIsNotDead(player, car)) return;
             if (!VerifyOffCooldown(FixCarCooldowns, player)) return;
 
-            var enginePartsTier = GetPlayerEnginePartsTier(player);
-            if (enginePartsTier > 0)
-            {
-                DropCarEnginePartsAboveTierAndDeleteRest(car, enginePartsTier);
-                car.AdminFixUp(enginePartsTier);
-            }
-            else
-            {
-                // Manually repair and fuel the car so we don't have to drop engine parts
-                // We are avoiding using `car.AdminFixUp()` since it deletes engine parts which complicates things
-                RepairCar(car);
-                car.fuelSystem.AdminFillFuel();
-            }
-
+            FixCar(car, GetPlayerEnginePartsTier(player));
             MaybeFillTankerModules(car, player);
             FixCarCooldowns.UpdateLastUsedForPlayer(player);
 
@@ -398,9 +385,14 @@ namespace Oxide.Plugins
             if (!VerifyHasCar(player, out car)) return;
             if (!pluginConfig.CanDespawnOccupied && !VerifyCarNotOccupied(player, car)) return;
             
-            MaybeRemoveMatchingKeysFromPlayer(player, car);
-            DropCarEnginePartsAboveTierAndDeleteRest(car, GetPlayerEnginePartsTier(player));
+            foreach (var module in car.AttachedModuleEntities)
+            {
+                var engineStorage = (module as VehicleModuleEngine)?.GetContainer() as EngineStorage;
+                if (engineStorage != null)
+                    DropEnginePartsAboveTierAndDeleteRest(engineStorage, GetPlayerEnginePartsTier(player));
+            }
 
+            MaybeRemoveMatchingKeysFromPlayer(player, car);
             car.Kill();
         }
 
@@ -504,11 +496,10 @@ namespace Oxide.Plugins
             }
 
             var enginePartsTier = GetPlayerEnginePartsTier(player);
-            DropCarEnginePartsAboveTierAndDeleteRest(car, enginePartsTier);
-            UpdateCarModules(car, preset.ModuleIDs);
+            UpdateCarModules(car, preset.ModuleIDs, enginePartsTier);
 
             NextTick(() => {
-                car.AdminFixUp(enginePartsTier);
+                FixCar(car, enginePartsTier);
                 MaybeFillTankerModules(car, player);
 
                 if (car.IsLockable && !car.carLock.CanHaveALock())
@@ -830,7 +821,7 @@ namespace Oxide.Plugins
 
             NextTick(() =>
             {
-                car.AdminFixUp(GetPlayerEnginePartsTier(player));
+                FixCar(car, GetPlayerEnginePartsTier(player));
                 MaybeFillTankerModules(car, player);
                 MaybeAutoLockCarForPlayer(car, player);
                 onReady?.Invoke(car);
@@ -843,7 +834,7 @@ namespace Oxide.Plugins
             car.waterSample.transform.SetPositionAndRotation(Vector3.up * 1000, new Quaternion());
         }
 
-        private void UpdateCarModules(ModularCar car, List<int> moduleIDs)
+        private void UpdateCarModules(ModularCar car, List<int> moduleIDs, int dropEnginePartsAboveTier)
         {
             // Phase 1: Remove all modules that don't match the desired preset
             // This is done first since some modules take up two sockets
@@ -854,6 +845,12 @@ namespace Oxide.Plugins
                 
                 if (existingItem != null && existingItem.info.itemid != desiredItemID)
                 {
+                    // When removing an engine module, we just drop any parts above the player's allowed tier
+                    // We can do better in the future, such as redistributing them among engines and giving them to the player
+                    var engineStorage = (car.GetModuleForItem(existingItem) as VehicleModuleEngine)?.GetContainer() as EngineStorage;
+                    if (engineStorage != null)
+                        DropEnginePartsAboveTierAndDeleteRest(engineStorage, dropEnginePartsAboveTier);
+
                     existingItem.RemoveFromContainer();
                     existingItem.Remove();
                 }
@@ -875,33 +872,65 @@ namespace Oxide.Plugins
             }
         }
 
-        private void DropCarEnginePartsAboveTierAndDeleteRest(ModularCar car, int tier)
+        private void AddUpgradeOrRepairEngineParts(EngineStorage engineStorage, int desiredTier)
         {
-            foreach (var module in car.AttachedModuleEntities)
+            if (engineStorage.inventory == null) return;
+            
+            var inventory = engineStorage.inventory;
+            for (var i = 0; i < inventory.capacity; i++)
             {
-                if (module is VehicleModuleEngine)
+                var item = inventory.GetSlot(i);
+                if (item != null)
                 {
-                    var engineStorage = (module as VehicleModuleEngine).GetContainer() as EngineStorage;
-                    
-                    // Delete all engine parts at or below the desired quality
-                    for (var i = 0; i < engineStorage.inventory.capacity; i++)
+                    var component = item.info.GetComponent<ItemModEngineItem>();
+                    if (component != null && component.tier < desiredTier)
                     {
-                        var item = engineStorage.inventory.GetSlot(i);
-                        if (item != null)
-                        {
-                            var component = item.info.GetComponent<ItemModEngineItem>();
-                            if (component != null && component.tier <= tier)
-                            {
-                                item.RemoveFromContainer();
-                                item.Remove();
-                            }
-                        }
+                        item.RemoveFromContainer();
+                        item.Remove();
+                        TryAddEngineItem(engineStorage, i, desiredTier);
                     }
+                    else
+                        item.condition = item.maxCondition;
+                }
+                else if (desiredTier > 0)
+                    TryAddEngineItem(engineStorage, i, desiredTier);
+            }
+        }
 
-                    // Then drop the remaining items which are above the allowed quality
-                    engineStorage.DropItems();
+        private bool TryAddEngineItem(EngineStorage engineStorage, int slot, int tier)
+        {
+            ItemModEngineItem output;
+            if (!engineStorage.allEngineItems.TryGetItem(tier, engineStorage.slotTypes[slot], out output)) return false;
+
+            var component = output.GetComponent<ItemDefinition>();
+            var item = ItemManager.Create(component);
+            if (item == null) return false;
+
+            item.condition = component.condition.max;
+            item.MoveToContainer(engineStorage.inventory, slot, allowStack: false);
+
+            return true;
+        }
+
+        private void DropEnginePartsAboveTierAndDeleteRest(EngineStorage engineStorage, int tier)
+        {
+            // Delete all engine parts at or below the desired quality
+            for (var i = 0; i < engineStorage.inventory.capacity; i++)
+            {
+                var item = engineStorage.inventory.GetSlot(i);
+                if (item != null)
+                {
+                    var component = item.info.GetComponent<ItemModEngineItem>();
+                    if (component != null && component.tier <= tier)
+                    {
+                        item.RemoveFromContainer();
+                        item.Remove();
+                    }
                 }
             }
+
+            // Then drop the remaining items which are above the allowed quality
+            engineStorage.DropItems();
         }
 
         private SpawnSettings MakeSpawnSettings(List<int> moduleIDs)
@@ -923,28 +952,23 @@ namespace Oxide.Plugins
             };
         }
 
-        private void RepairCar(ModularCar car)
+        private void FixCar(ModularCar car, int enginePartsTier)
         {
-            // Repair the car
             car.SetHealth(car.MaxHealth());
             car.SendNetworkUpdate();
+            car.fuelSystem.AdminFillFuel();
 
             foreach (var module in car.AttachedModuleEntities)
             {
-                // Repair each module
                 module.SetHealth(module.MaxHealth());
                 module.SendNetworkUpdate();
 
-                if (module is VehicleModuleEngine)
+                var engineModule = module as VehicleModuleEngine;
+                if (engineModule != null)
                 {
-                    // Repair all engine parts
-                    var engineStorage = (module as VehicleModuleEngine).GetContainer() as EngineStorage;
-                    for (var i = 0; i < engineStorage.inventory.capacity; i++)
-                    {
-                        var item = engineStorage.inventory.GetSlot(i);
-                        if (item != null)
-                            item.condition = item.maxCondition;
-                    }
+                    var engineStorage = engineModule.GetContainer() as EngineStorage;
+                    AddUpgradeOrRepairEngineParts(engineStorage, enginePartsTier);
+                    engineModule.RefreshPerformanceStats(engineStorage);
                 }
             }
         }

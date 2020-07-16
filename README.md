@@ -12,11 +12,11 @@ When a modular car is spawned, it will be at full health and contain maximum fue
 The spawn position is relative to the player so that they are on the driver side and within mount distance of the middle modules.
 
 ### Other commands
-- `/mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoLock` setting. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, instead of engine parts being repaired, they will be replaced with the maximum quality you are allowed. Any engine parts already present of higher quality than you are allowed will be dropped to the ground.
+- `/mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoLock` setting. Engine parts will also be repaired. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, missing engine parts are added, and lower quality parts are replaced with the maximum you quality you are allowed.
 - `/mycar fetch` -- Teleport your car to you in an upright position.
 - `/mycar destroy` -- Destroy your car, allowing you to spawn a new one.
 - `/mycar autolock` -- Toggles AutoLock. While ON, spawning your car will automatically create a lock and add a matching key to your inventory. Note: This only happens if the car has at least one seating module.
-- `/mycar autofilltankers` -- Toggles AutoFillTankers. While ON, spawning your car, fixing it, or loading a preset will automatically fill any tanker modules to maximum capacity with fresh water. Any salt water in them will be removed.
+- `/mycar autofilltankers` -- Toggles AutoFillTankers. While ON, spawning your car, fixing it, or loading a preset will automatically fill any tanker modules to maximum capacity with fresh water, replacing any salt water already in them.
 - `/mycar help` -- Print a list of available commands and their usage. Only shows commands allowed by your permissions.
 
 ### Preset-related commands
@@ -26,7 +26,7 @@ Players can save custom module configurations, allowing them to spawn a car or u
 - `/mycar list` -- List your saved module configuration presets.
 - `/mycar save <name>` -- Save your car's current module configuration under the specified preset name.
 - `/mycar update <name>` -- Overwrite an existing preset with your car's current module configuration.
-- `/mycar load <name>` -- Load the specified preset (partial name matching supported) onto your existing car, replacing any modules that don't match the preset. This also fixes the car according to the same rules as `/mycar fix`. Note: A lock will be removed if the preset has no seating modules. Loading a preset is not allowed if your current car is occupied or if it has a different number of sockets than the preset.
+- `/mycar load <name>` -- Load the specified preset (partial name matching supported) onto your existing car, replacing any modules that don't match the preset. This also fixes the car according to the same rules as `/mycar fix`. Note: A lock will be removed if the preset has no seating modules. Loading a preset is not allowed if your current car is occupied or if it has a different number of sockets than the preset. Additionally, if an engine module is replaced with a different module, any parts in that engine of higher quality than you are allowed by your `spawnmodularcar.engineparts.*` permissions will be dropped to the ground.
 - `/mycar rename <name> <new name>` -- Renames a preset.
 - `/mycar delete <name>` -- Delete the specified preset.
 
@@ -51,7 +51,7 @@ Misc:
 - `spawnmodularcar.autokeylock` -- Required to use automatic locking (i.e., `/mycar autolock`).
 - `spawnmodularcar.autofilltankers` - Required to use automatic filling of tanker modules (i.e. `/mycar autofilltankers`).
 - `spawnmodularcar.underwater` -- Allows your car to be driven underwater (scuba gear is recommended). Note: Underwater driving is noticeably slower than on land.
-- `spawnmodularcar.autostartengine` -- Automatically and instantly start your car's engine when you get in.
+- `spawnmodularcar.autostartengine` -- Instantly start your car's engine when you get in.
 - `spawnmodularcar.presets` -- Allows you to spawn your car from a preset. Also enables the `save`, `update`, `rename` and `delete` preset commands.
 - `spawnmodularcar.presets.load` -- Allows the player to use the `load` preset command.
 
@@ -76,12 +76,12 @@ Misc:
 }
 ```
 
-- `CanDespawnWhileOccupied` (`true` or `false`) -- Whether to allow players to use `/mycar destroy` while their car is occupied. Detects players in seating and flatbed modules.
-- `CanFetchWhileOccupied` (`true` or `false`) -- Whether to allow players to fetch their car while it's occupied. Detects players in seating and flatbed modules.
+- `CanDespawnWhileOccupied` (`true` or `false`) -- Whether to allow players to use `/mycar destroy` while their car is occupied. If `true`, Players in seating and flatbed modules will be safely ejected.
+- `CanFetchWhileOccupied` (`true` or `false`) -- Whether to allow players to fetch their car while it's occupied. If `true`, players in seating and flatbed modules will be safely ejected if `DismountPlayersOnFetch` is `true`, else they will be teleported with the car.
 - `CanFetchWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to fetch their car while they are building blocked.
-- `CanSpawnWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to spawn a car while they are building blocked.
-- `Cooldowns` -- Various cooldowns for balancing. These were primarily implemented to prevent spamming, so they are not tracked across plugin reloads or server restarts, so setting them very high (e.g., hours or days) may not always work as intended.
-- `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the player inventory when the player uses `/mycar destroy` or when they use `/mycar load` and the lock is removed because the preset contains no seating modules. I recommend this be set to `true`, especially if you are allowing players to use the automatic locking feature since it spawns extra keys which may otherwise clutter the inventory.
+- `CanSpawnWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to spawn their car while they are building blocked.
+- `Cooldowns` -- Various cooldowns for balancing. These were primarily implemented to prevent spamming, so they are not currently tracked across plugin reloads or server restarts, so setting them very high (e.g., hours or days) may not always work as intended.
+- `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the player inventory when the player uses `/mycar destroy` or when they use `/mycar load` and the lock is removed because the preset contains no seating modules. I recommend this be set to `true`, especially if you are allowing players to use the automatic locking feature since it spawns keys which may otherwise clutter the player's inventory.
 - `DismountPlayersOnFetch` (`true` or `false`) -- Whether to dismount all players from a car when it is fetched. Has no effect unless `CanFetchWhileOccupied` is also `true`.
 - `EnableEffects` (`true` or `false`) -- Enable audio and visual effects when spawning a car from a preset, using `/mycar fix` or `/mycar load`.
 
