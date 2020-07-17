@@ -11,7 +11,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.4.9")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.4.10")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : RustPlugin
     {
@@ -411,7 +411,7 @@ namespace Oxide.Plugins
 
             // Copy preset list then sort, with "default" at the beginning
             var presetList = config.Presets.Select(p => p).ToList();
-            presetList.Sort((a, b) => (a.Name == "default") ? -1 : a.Name.CompareTo(b.Name));
+            presetList.Sort((a, b) => (a.Name.ToLower() == "default") ? -1 : b.Name.ToLower() == "default" ? 1 : a.Name.CompareTo(b.Name));
 
             foreach (var preset in presetList)
                 chatMessages.Add(GetMessage(player, "Command.List.Item", preset.Name, preset.NumSockets));
