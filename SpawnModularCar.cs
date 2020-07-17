@@ -11,7 +11,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.4.10")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.4.11")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : RustPlugin
     {
@@ -46,6 +46,8 @@ namespace Oxide.Plugins
         private const string PrefabSockets2 = "assets/content/vehicles/modularcar/2module_car_spawned.entity.prefab";
         private const string PrefabSockets3 = "assets/content/vehicles/modularcar/3module_car_spawned.entity.prefab";
         private const string PrefabSockets4 = "assets/content/vehicles/modularcar/4module_car_spawned.entity.prefab";
+
+        private const string ItemDropPrefab = "assets/prefabs/misc/item drop/item_drop.prefab";
 
         private const string RepairEffectPrefab = "assets/bundled/prefabs/fx/build/promote_toptier.prefab";
         private const string TankerFilledEffectPrefab = "assets/prefabs/food/water jug/effects/water-jug-fill-container.prefab";
@@ -139,6 +141,7 @@ namespace Oxide.Plugins
             if (car.OwnerID == player.userID && car.CanRunEngines())
                 car.FinishStartingEngine();
         }
+
         #endregion
 
         #region Commands
@@ -384,16 +387,18 @@ namespace Oxide.Plugins
             ModularCar car;
             if (!VerifyHasCar(player, out car)) return;
             if (!pluginConfig.CanDespawnOccupied && !VerifyCarNotOccupied(player, car)) return;
-            
-            foreach (var module in car.AttachedModuleEntities)
-            {
-                var engineStorage = (module as VehicleModuleEngine)?.GetContainer() as EngineStorage;
-                if (engineStorage != null)
-                    DropEnginePartsAboveTierAndDeleteRest(engineStorage, GetPlayerEnginePartsTier(player));
-            }
 
             MaybeRemoveMatchingKeysFromPlayer(player, car);
+
+            var extractedEngineParts = ExtractEnginePartsAboveTierAndDeleteRest(car, GetPlayerEnginePartsTier(player));
+            
             car.Kill();
+
+            if (extractedEngineParts.Count > 0)
+            {
+                GiveItemsToPlayerOrDrop(player, extractedEngineParts);
+                ChatMessage(player, "Generic.Info.PartsRecovered");
+            }
         }
 
         private void SubCommand_ListPresets(BasePlayer player, string[] args)
@@ -495,24 +500,46 @@ namespace Oxide.Plugins
                 return;
             }
 
+            var wasEngineOn = car.IsOn();
             var enginePartsTier = GetPlayerEnginePartsTier(player);
-            UpdateCarModules(car, preset.ModuleIDs, enginePartsTier);
+            var extractedEngineParts = ExtractEnginePartsAboveTierAndDeleteRest(car, enginePartsTier);
+            UpdateCarModules(car, preset.ModuleIDs);
+            LoadPresetCooldowns.UpdateLastUsedForPlayer(player);
 
             NextTick(() => {
+                var wereExtraParts = false;
+
+                if (extractedEngineParts.Count > 0)
+                {
+                    var remainingEngineParts = AddEngineItemsAndReturnRemaining(car, extractedEngineParts);
+                    if (remainingEngineParts.Count > 0)
+                    {
+                        wereExtraParts = true;
+                        GiveItemsToPlayerOrDrop(player, remainingEngineParts);
+                    }
+                }
+
                 FixCar(car, enginePartsTier);
+
+                // Restart the engine if it turned off during the brief moment it had no engine or no parts
+                if (wasEngineOn && !car.IsOn() && car.CanRunEngines()) car.FinishStartingEngine();
+
                 MaybeFillTankerModules(car, player);
 
-                if (car.IsLockable && !car.carLock.CanHaveALock())
+                if (car.carLock.HasALock && !car.carLock.CanHaveALock())
                 {
                     MaybeRemoveMatchingKeysFromPlayer(player, car);
                     car.RemoveLock();
                 }
 
                 MaybePlayCarRepairEffects(car);
-                ChatMessage(player, "Command.LoadPreset.Success", preset.Name);
-            });
 
-            LoadPresetCooldowns.UpdateLastUsedForPlayer(player);
+                var chatMessages = new List<String>() { GetMessage(player, "Command.LoadPreset.Success", preset.Name) };
+                if (wereExtraParts)
+                    chatMessages.Add(GetMessage(player, "Generic.Info.PartsRecovered"));
+
+                PrintToChat(player, String.Join(" ", chatMessages));
+            });
         }
 
         private void SubCommand_RenamePreset(BasePlayer player, string[] args)
@@ -834,7 +861,7 @@ namespace Oxide.Plugins
             car.waterSample.transform.SetPositionAndRotation(Vector3.up * 1000, new Quaternion());
         }
 
-        private void UpdateCarModules(ModularCar car, List<int> moduleIDs, int dropEnginePartsAboveTier)
+        private void UpdateCarModules(ModularCar car, List<int> moduleIDs)
         {
             // Phase 1: Remove all modules that don't match the desired preset
             // This is done first since some modules take up two sockets
@@ -845,12 +872,6 @@ namespace Oxide.Plugins
                 
                 if (existingItem != null && existingItem.info.itemid != desiredItemID)
                 {
-                    // When removing an engine module, we just drop any parts above the player's allowed tier
-                    // We can do better in the future, such as redistributing them among engines and giving them to the player
-                    var engineStorage = (car.GetModuleForItem(existingItem) as VehicleModuleEngine)?.GetContainer() as EngineStorage;
-                    if (engineStorage != null)
-                        DropEnginePartsAboveTierAndDeleteRest(engineStorage, dropEnginePartsAboveTier);
-
                     existingItem.RemoveFromContainer();
                     existingItem.Remove();
                 }
@@ -870,6 +891,37 @@ namespace Oxide.Plugins
                         car.TryAddModule(moduleItem, socketIndex);
                 }
             }
+        }
+
+        private List<Item> AddEngineItemsAndReturnRemaining(ModularCar car, List<Item> engineItems)
+        {
+            var itemsByType = engineItems
+                .GroupBy(item => item.info.GetComponent<ItemModEngineItem>().engineItemType)
+                .ToDictionary(
+                    grouping => grouping.Key,
+                    grouping => grouping.OrderByDescending(item => item.info.GetComponent<ItemModEngineItem>().tier).ToList()
+                );
+
+            foreach (var module in car.AttachedModuleEntities)
+            {
+                var engineStorage = (module as VehicleModuleEngine)?.GetContainer() as EngineStorage;
+                if (engineStorage == null) continue;
+
+                for (var slotIndex = 0; slotIndex < engineStorage.inventory.capacity; slotIndex++)
+                {
+                    var engineItemType = engineStorage.slotTypes[slotIndex];
+                    if (!itemsByType.ContainsKey(engineItemType)) continue;
+
+                    var itemsOfType = itemsByType[engineItemType];
+                    var existingItem = engineStorage.inventory.GetSlot(slotIndex);
+                    if (existingItem != null || itemsOfType.Count == 0) continue;
+
+                    itemsOfType[0].MoveToContainer(engineStorage.inventory, slotIndex, allowStack: false);
+                    itemsOfType.RemoveAt(0);
+                }
+            }
+
+            return itemsByType.Values.SelectMany(x => x).ToList();
         }
 
         private void AddUpgradeOrRepairEngineParts(EngineStorage engineStorage, int desiredTier)
@@ -912,25 +964,80 @@ namespace Oxide.Plugins
             return true;
         }
 
-        private void DropEnginePartsAboveTierAndDeleteRest(EngineStorage engineStorage, int tier)
+        private List<Item> ExtractEnginePartsAboveTierAndDeleteRest(ModularCar car, int tier)
         {
-            // Delete all engine parts at or below the desired quality
-            for (var i = 0; i < engineStorage.inventory.capacity; i++)
+            var extractedEngineParts = new List<Item>();
+
+            foreach (var module in car.AttachedModuleEntities)
             {
-                var item = engineStorage.inventory.GetSlot(i);
-                if (item != null)
+                var engineStorage = (module as VehicleModuleEngine)?.GetContainer() as EngineStorage;
+                if (engineStorage == null) continue;
+
+                for (var i = 0; i < engineStorage.inventory.capacity; i++)
                 {
+                    var item = engineStorage.inventory.GetSlot(i);
+                    if (item == null) continue;
+
                     var component = item.info.GetComponent<ItemModEngineItem>();
-                    if (component != null && component.tier <= tier)
-                    {
-                        item.RemoveFromContainer();
+                    if (component == null) continue;
+
+                    item.RemoveFromContainer();
+
+                    if (component.tier > tier)
+                        extractedEngineParts.Add(item);
+                    else
                         item.Remove();
-                    }
                 }
             }
 
-            // Then drop the remaining items which are above the allowed quality
-            engineStorage.DropItems();
+            return extractedEngineParts;
+        }
+
+        private void GiveItemsToPlayerOrDrop(BasePlayer player, List<Item> itemList)
+        {
+            var itemsToDrop = new List<Item>();
+
+            foreach (var item in itemList)
+                if (!player.inventory.GiveItem(item))
+                    itemsToDrop.Add(item);
+
+            if (itemsToDrop.Count > 0)
+                DropEngineParts(player, itemsToDrop);
+        }
+
+        private void DropEngineParts(BasePlayer player, List<Item> itemList)
+        {
+            if (itemList.Count == 0) return;
+
+            var position = player.GetDropPosition();
+            if (itemList.Count == 1)
+            {
+                itemList[0].Drop(position, player.GetDropVelocity());
+                return;
+            }
+
+            var container = GameManager.server.CreateEntity(ItemDropPrefab, position, player.GetNetworkRotation()) as DroppedItemContainer;
+            if (container == null) return;
+
+            container.playerName = $"{player.displayName}'s Engine Parts";
+
+            // 4 large engines * 8 parts (each damaged) = 32 max engine parts
+            // This fits within the standard max size of 36
+            var capacity = Math.Min(itemList.Count, container.maxItemCount);
+
+            container.inventory = new ItemContainer();
+            container.inventory.ServerInitialize(null, capacity);
+            container.inventory.GiveUID();
+            container.inventory.entityOwner = container;
+            container.inventory.SetFlag(ItemContainer.Flag.NoItemInput, true);
+
+            foreach (var item in itemList)
+                if (!item.MoveToContainer(container.inventory))
+                    item.DropAndTossUpwards(position);
+
+            container.ResetRemovalTime();
+            container.SetVelocity(player.GetDropVelocity());
+            container.Spawn();
         }
 
         private SpawnSettings MakeSpawnSettings(List<int> moduleIDs)
@@ -1141,6 +1248,7 @@ namespace Oxide.Plugins
                 ["Generic.Error.PresetMultipleMatches"] = "Error: Multiple presets found matching <color=yellow>{0}</color>. Use <color=yellow>/mycar list</color> to view your presets.",
                 ["Generic.Error.PresetAlreadyTaken"] = "Error: Preset <color=yellow>{0}</color> is already taken.",
                 ["Generic.Info.CarDestroyed"] = "Your modular car was destroyed.",
+                ["Generic.Info.PartsRecovered"] = "Recovered engine components were added to your inventory or dropped in front of you.",
                 ["Command.Spawn.Error.SocketSyntax"] = "Syntax: <color=yellow>/mycar <2|3|4></color>",
                 ["Command.Spawn.Error.CarAlreadyExists"] = "Error: You already have a car.",
                 ["Command.Spawn.Error.CarAlreadyExists.Help"] = "Try <color=yellow>/mycar fetch</color> or <color=yellow>/mycar help</color>.",

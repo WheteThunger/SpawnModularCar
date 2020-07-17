@@ -16,8 +16,10 @@ When a modular car is spawned, it will be at full health and contain maximum fue
 - `/mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoLock` setting. Engine components will also be repaired. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, missing engine components are added, and lower quality components are replaced with the maximum quality you are allowed.
 - `/mycar fetch` -- Teleport your car to you in an upright position.
 - `/mycar destroy` -- Destroy your car, allowing you to spawn a new one.
-- `/mycar autolock` -- Toggles AutoLock. While ON, spawning your car will automatically create a lock and add a matching key to your inventory. Note: This only happens if the car has at least one seating module.
-- `/mycar autofilltankers` -- Toggles AutoFillTankers. While ON, spawning your car, fixing it, or loading a preset will automatically fill any tanker modules to maximum capacity with fresh water, replacing any salt water already in them.
+  - Non-empty storage modules will drop a bag with their items next to where the car was located.
+  - If the car's engine modules contained components that are of higher quality than are allowed by your `spawnmodularcar.engineparts.*` permissions, those will be added to your inventory if there is space, else dropped to the ground in front of you.
+- `/mycar autolock` -- Toggle AutoLock. While ON, spawning your car will automatically create a lock and add a matching key to your inventory. Note: This only happens if the car has at least one seating module.
+- `/mycar autofilltankers` -- Toggle AutoFillTankers. While ON, spawning your car, fixing it, or loading a preset will automatically fill any tanker modules to maximum capacity with fresh water, replacing any salt water already in them.
 - `/mycar help` -- Print a list of available commands and their usage. Only shows commands allowed by your permissions.
 
 ### Preset-related commands
@@ -27,8 +29,12 @@ Players can save custom module configurations, allowing them to spawn a car or u
 - `/mycar list` -- List your saved module configuration presets.
 - `/mycar save <name>` -- Save your car's current module configuration under the specified preset name.
 - `/mycar update <name>` -- Overwrite an existing preset with your car's current module configuration.
-- `/mycar load <name>` -- Load the specified preset (partial name matching supported) onto your existing car, replacing any modules that don't match the preset. This also fixes the car according to the same rules as `/mycar fix`. Note: A lock will be removed if the preset has no seating modules. Loading a preset is not allowed if your current car is occupied or if it has a different number of sockets than the preset. Additionally, if an engine module is replaced with a different module, any components in that engine of higher quality than you are allowed by your `spawnmodularcar.engineparts.*` permissions will be dropped to the ground.
-- `/mycar rename <name> <new name>` -- Renames a preset.
+- `/mycar load <name>` -- Load the specified preset (partial name matching supported) onto your existing car, replacing any modules that don't match the preset. Loading a preset is not allowed if your current car is occupied or if it has a different number of sockets than the preset.
+  - The car will be fixed according to the same rules as `/mycar fix`.
+  - The car's lock will be removed if the car no longer has at least one seating module.
+  - Non-empty storage modules that were replaced will drop a bag with their items next to the car.
+  - Any engine components of higher quality than are allowed by your `spawnmodularcar.engineparts.*` permissions will be redistributed throughout the engine modules in the loaded preset, with the highest quality parts towards the front-most engine modules. If any engine components are left over, those will be added to your inventory if there is space, else dropped to the ground in front of you.
+- `/mycar rename <name> <new name>` -- Rename a preset.
 - `/mycar delete <name>` -- Delete the specified preset.
 
 Note: The `save`, `update`, `load` and `delete` commands will use the "default" preset if the preset name is not specified.
@@ -85,6 +91,7 @@ Misc:
 - `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the player inventory when the player uses `/mycar destroy` or when they use `/mycar load` and the lock is removed because the preset contains no seating modules. I recommend this be set to `true`, especially if you are allowing players to use the automatic locking feature since it spawns keys which may otherwise clutter the player's inventory.
 - `DismountPlayersOnFetch` (`true` or `false`) -- Whether to dismount all players from a car when it is fetched. Has no effect unless `CanFetchWhileOccupied` is also `true`.
 - `EnableEffects` (`true` or `false`) -- Enable audio and visual effects when spawning a car from a preset, using `/mycar fix` or `/mycar load`.
+- `MaxPresetsPerPlayer` -- The maximum number of module configuration presets each player is allowed to save.
 
 ## Localization
 
@@ -104,6 +111,7 @@ Misc:
   "Generic.Error.PresetMultipleMatches": "Error: Multiple presets found matching <color=yellow>{0}</color>. Use <color=yellow>/mycar list</color> to view your presets.",
   "Generic.Error.PresetAlreadyTaken": "Error: Preset <color=yellow>{0}</color> is already taken.",
   "Generic.Info.CarDestroyed": "Your modular car was destroyed.",
+  "Generic.Info.PartsRecovered": "Recovered engine components were added to your inventory or dropped in front of you.",
   "Command.Spawn.Error.SocketSyntax": "Syntax: <color=yellow>/mycar <2|3|4></color>",
   "Command.Spawn.Error.CarAlreadyExists": "Error: You already have a car.",
   "Command.Spawn.Error.CarAlreadyExists.Help": "Try <color=yellow>/mycar fetch</color> or <color=yellow>/mycar help</color>.",
