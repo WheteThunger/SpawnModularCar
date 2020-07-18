@@ -11,7 +11,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.4.11")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.4.12")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : RustPlugin
     {
@@ -23,6 +23,7 @@ namespace Oxide.Plugins
         private PluginConfig pluginConfig;
 
         private const string DefaultPresetName = "default";
+        private const int PresetMaxLength = 30;
 
         private const string PermissionSpawnSockets2 = "spawnmodularcar.spawn.2";
         private const string PermissionSpawnSockets3 = "spawnmodularcar.spawn.3";
@@ -447,6 +448,12 @@ namespace Oxide.Plugins
                 return;
             }
 
+            if (presetName.Length > PresetMaxLength)
+            {
+                ChatMessage(player, "Generic.Error.PresetNameLength", PresetMaxLength);
+                return;
+            }
+
             config.SavePreset(CarPreset.FromCar(car, presetName));
             ChatMessage(player, "Command.SavePreset.Success", presetName);    
         }
@@ -563,7 +570,13 @@ namespace Oxide.Plugins
 
             var config = GetPlayerConfig(player);
             CarPreset existingPresetWithNewName = config.FindPreset(newName);
-            
+
+            if (newName.Length > PresetMaxLength)
+            {
+                ChatMessage(player, "Generic.Error.PresetNameLength", PresetMaxLength);
+                return;
+            }
+
             // Allow renaming if just changing case
             if (existingPresetWithNewName != null && preset != existingPresetWithNewName)
             {
@@ -1247,6 +1260,7 @@ namespace Oxide.Plugins
                 ["Generic.Error.PresetNotFound"] = "Error: Preset <color=yellow>{0}</color> not found.",
                 ["Generic.Error.PresetMultipleMatches"] = "Error: Multiple presets found matching <color=yellow>{0}</color>. Use <color=yellow>/mycar list</color> to view your presets.",
                 ["Generic.Error.PresetAlreadyTaken"] = "Error: Preset <color=yellow>{0}</color> is already taken.",
+                ["Generic.Error.PresetNameLength"] = "Error: Preset name may not be longer than {0} characters.",
                 ["Generic.Info.CarDestroyed"] = "Your modular car was destroyed.",
                 ["Generic.Info.PartsRecovered"] = "Recovered engine components were added to your inventory or dropped in front of you.",
                 ["Command.Spawn.Error.SocketSyntax"] = "Syntax: <color=yellow>/mycar <2|3|4></color>",
