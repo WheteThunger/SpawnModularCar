@@ -11,7 +11,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.4.12")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.4.13")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : RustPlugin
     {
@@ -127,7 +127,7 @@ namespace Oxide.Plugins
 
         private void OnEntityMounted(BaseMountable mountable, BasePlayer player)
         {
-            var car = (mountable as BaseVehicleMountPoint).GetVehicleParent() as ModularCar;
+            var car = (mountable as BaseVehicleMountPoint)?.GetVehicleParent() as ModularCar;
             if (car == null || !pluginData.playerCars.ContainsValue(car.net.ID)) return;
 
             if (car.waterSample.transform.parent != null &&
