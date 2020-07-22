@@ -13,12 +13,12 @@ When a modular car is spawned, it will be at full health and contain maximum fue
 - All engine modules may be automatically filled with your highest allowed quality of engine components.
 
 ### Other commands
-- `/mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoLock` setting. Engine components will also be repaired. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, missing engine components are added, and lower quality components are replaced with the maximum quality you are allowed.
+- `/mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoLock` setting. Engine components will also be repaired. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, missing engine components are added, and lower quality components are replaced with the maximum quality you are allowed. Note: This command cannot restore your car if it is "dead" (0 health on every module).
 - `/mycar fetch` -- Teleport your car to you in an upright position.
 - `/mycar destroy` -- Destroy your car, allowing you to spawn a new one.
   - Non-empty storage modules will drop a bag with their items next to where the car was located.
   - If the car's engine modules contained components that are of higher quality than are allowed by your `spawnmodularcar.engineparts.*` permissions, those will be added to your inventory if there is space, else dropped to the ground in front of you.
-- `/mycar autolock` -- Toggle AutoLock. While ON, spawning your car will automatically create a lock and add a matching key to your inventory. Note: This only happens if the car has at least one seating module.
+- `/mycar autolock` -- Toggle AutoLock. While ON, spawning your car will automatically create a lock and add a matching key to your inventory. Note: This only happens if the car has at least one cockpit module.
 - `/mycar autofilltankers` -- Toggle AutoFillTankers. While ON, spawning your car, fixing it, or loading a preset will automatically fill any tanker modules to maximum capacity with fresh water, replacing any salt water already in them.
 - `/mycar help` -- Print a list of available commands and their usage. Only shows commands allowed by your permissions.
 
@@ -31,7 +31,7 @@ Players can save custom module configurations, allowing them to spawn a car or u
 - `/mycar update <name>` -- Overwrite an existing preset with your car's current module configuration.
 - `/mycar load <name>` -- Load the specified preset (partial name matching supported) onto your existing car, replacing any modules that don't match the preset. Loading a preset is not allowed if your current car is occupied or if it has a different number of sockets than the preset.
   - The car will be fixed according to the same rules as `/mycar fix`.
-  - The car's lock will be removed if the car no longer has at least one seating module.
+  - The car's lock will be removed if the car no longer has at least one cockpit module.
   - Non-empty storage modules that were replaced will drop a bag with their items next to the car.
   - Any engine components of higher quality than are allowed by your `spawnmodularcar.engineparts.*` permissions will be redistributed throughout the engine modules in the loaded preset, with the highest quality parts towards the front-most engine modules. If any engine components are left over, those will be added to your inventory if there is space, else dropped to the ground in front of you.
 - `/mycar rename <name> <new name>` -- Rename a preset.
@@ -83,12 +83,12 @@ Misc:
 }
 ```
 
-- `CanDespawnWhileOccupied` (`true` or `false`) -- Whether to allow players to use `/mycar destroy` while their car is occupied. If `true`, Players in seating and flatbed modules will be safely ejected.
-- `CanFetchWhileOccupied` (`true` or `false`) -- Whether to allow players to fetch their car while it's occupied. If `true`, players in seating and flatbed modules will be safely ejected if `DismountPlayersOnFetch` is `true`, else they will be teleported with the car.
-- `CanFetchWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to fetch their car while they are building blocked.
-- `CanSpawnWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to spawn their car while they are building blocked.
+- `CanDespawnWhileOccupied` (`true` or `false`) -- Whether to allow players to use `/mycar destroy` while their car is occupied. If `true`, despawning a car will safely eject players from seating and flatbed modules.
+- `CanFetchWhileOccupied` (`true` or `false`) -- Whether to allow players to fetch their car while it's occupied. If `true`, fetchinig a car will safely eject players from seating and flatbed modules if `DismountPlayersOnFetch` is `true`, else those players will be teleported with the car.
+- `CanFetchWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to fetch their car while they are building blocked. Recommended to be set to `false` to avoid exploits where people use the car to get through a wall.
+- `CanSpawnWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to spawn their car while they are building blocked. Recommended to be set to `false` to avoid exploits where people use the car to get through a wall.
 - `Cooldowns` -- Various cooldowns for balancing. These were primarily implemented to prevent spamming, so they are not currently tracked across plugin reloads or server restarts, so setting them very high (e.g., hours or days) may not always work as intended.
-- `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the player inventory when the player uses `/mycar destroy` or when they use `/mycar load` and the lock is removed because the preset contains no seating modules. I recommend this be set to `true`, especially if you are allowing players to use the automatic locking feature since it spawns keys which may otherwise clutter the player's inventory.
+- `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the owner player's inventory when they use `/mycar destroy`. Also applies to when they use `/mycar load` and the lock is removed because the preset contains no cockpit modules. I recommend this be set to `true`, especially if you are allowing players to use the automatic locking feature since that spawns keys which may otherwise clutter the player's inventory.
 - `DismountPlayersOnFetch` (`true` or `false`) -- Whether to dismount all players from a car when it is fetched. Has no effect unless `CanFetchWhileOccupied` is also `true`.
 - `EnableEffects` (`true` or `false`) -- Enable audio and visual effects when spawning a car from a preset, using `/mycar fix` or `/mycar load`.
 - `MaxPresetsPerPlayer` -- The maximum number of module configuration presets each player is allowed to save.
@@ -142,7 +142,7 @@ Misc:
   "Command.Help.Spawn.Sockets": "<color=yellow>/mycar <2|3|4></color> - Spawn a random car with the specified number of sockets",
   "Command.Help.Spawn.Preset": "<color=yellow>/mycar <name></color> - Spawn a car from a saved preset",
   "Command.Help.Fetch": "<color=yellow>/mycar fetch</color> - Fetch your car",
-  "Command.Help.Fix": "<color=yellow>/mycar fix</color> - Fixes your car",
+  "Command.Help.Fix": "<color=yellow>/mycar fix</color> - Fix your car",
   "Command.Help.Destroy": "<color=yellow>/mycar destroy</color> - Destroy your car",
   "Command.Help.ListPresets": "<color=yellow>/mycar list</color> - List your saved module configuration presets",
   "Command.Help.SavePreset": "<color=yellow>/mycar save <name></color> - Save your car as a preset",

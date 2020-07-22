@@ -1292,7 +1292,7 @@ namespace Oxide.Plugins
                 ["Command.Help.Spawn.Sockets"] = "<color=yellow>/mycar <2|3|4></color> - Spawn a random car with the specified number of sockets",
                 ["Command.Help.Spawn.Preset"] = "<color=yellow>/mycar <name></color> - Spawn a car from a saved preset",
                 ["Command.Help.Fetch"] = "<color=yellow>/mycar fetch</color> - Fetch your car",
-                ["Command.Help.Fix"] = "<color=yellow>/mycar fix</color> - Fixes your car",
+                ["Command.Help.Fix"] = "<color=yellow>/mycar fix</color> - Fix your car",
                 ["Command.Help.Destroy"] = "<color=yellow>/mycar destroy</color> - Destroy your car",
                 ["Command.Help.ListPresets"] = "<color=yellow>/mycar list</color> - List your saved module configuration presets",
                 ["Command.Help.SavePreset"] = "<color=yellow>/mycar save <name></color> - Save your car as a preset",
