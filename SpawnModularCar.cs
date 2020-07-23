@@ -417,7 +417,7 @@ namespace Oxide.Plugins
 
             // Copy preset list then sort, with "default" at the beginning
             var presetList = config.Presets.Select(p => p).ToList();
-            presetList.Sort((a, b) => (a.Name.ToLower() == "default") ? -1 : b.Name.ToLower() == "default" ? 1 : a.Name.CompareTo(b.Name));
+            presetList.Sort(SortPresetNames);
 
             foreach (var preset in presetList)
                 chatMessages.Add(GetMessage(player, "Command.List.Item", preset.Name, preset.NumSockets));
@@ -729,6 +729,11 @@ namespace Oxide.Plugins
         #endregion
 
         #region Helper Methods - Cars
+
+        private int SortPresetNames(CarPreset a, CarPreset b) =>
+            a.Name.ToLower() == DefaultPresetName ? -1 :
+            b.Name.ToLower() == DefaultPresetName ? 1 :
+            a.Name.CompareTo(b.Name);
 
         private ModularCar FindPlayerCar(BasePlayer player)
         {
