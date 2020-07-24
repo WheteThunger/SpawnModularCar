@@ -77,6 +77,7 @@ Misc:
     "SpawnCarSeconds": 10.0
   },
   "DeleteMatchingKeysFromPlayerInventoryOnDespawn": true,
+  "DisableSpawnLimitEnforcement": false,
   "DismountPlayersOnFetch": true,
   "EnableEffects": true,
   "MaxPresetsPerPlayer": 10
@@ -89,6 +90,7 @@ Misc:
 - `CanSpawnWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to spawn their car while they are building blocked. Recommended to be set to `false` to avoid exploits where people use the car to get through a wall.
 - `Cooldowns` -- Various cooldowns for balancing. These were primarily implemented to prevent spamming, so they are not currently tracked across plugin reloads or server restarts, so setting them very high (e.g., hours or days) may not always work as intended.
 - `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the owner player's inventory when they use `mycar destroy`. Also applies to when they use `mycar load` and the lock is removed because the preset contains no cockpit modules. I recommend this be set to `true`, especially if you are allowing players to use the automatic locking feature since that spawns keys which may otherwise clutter the player's inventory.
+- `DisableSpawnLimitEnforcement` (`true` or `false`) -- Set to `true` to keep all modular cars between server restarts. Otherwise, the game will delete extra cars beyond the server's configured modular car population, which *may* delete player cars depending on how recently they were spawned.
 - `DismountPlayersOnFetch` (`true` or `false`) -- Whether to dismount all players from a car when it is fetched. Has no effect unless `CanFetchWhileOccupied` is also `true`.
 - `EnableEffects` (`true` or `false`) -- Enable audio and visual effects when spawning a car from a preset, using `mycar fix` or `mycar load`.
 - `MaxPresetsPerPlayer` -- The maximum number of module configuration presets each player is allowed to save.

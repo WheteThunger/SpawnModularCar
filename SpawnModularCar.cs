@@ -12,7 +12,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.5.0")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.6.0")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -95,6 +95,12 @@ namespace Oxide.Plugins
             FixCarCooldowns = new CooldownManager(pluginConfig.Cooldowns.FixSeconds);
             FetchCarCooldowns = new CooldownManager(pluginConfig.Cooldowns.FetchSeconds);
             LoadPresetCooldowns = new CooldownManager(pluginConfig.Cooldowns.LoadPresetSeconds);
+        }
+
+        private void OnServerInitialized()
+        {
+            if (pluginConfig.DisableSpawnLimitEnforcement)
+                DisableSpawnLimitEnforcement();
         }
 
         private void Unload()
@@ -1204,6 +1210,25 @@ namespace Oxide.Plugins
                 Effect.server.Run(RepairEffectPrefab, car.transform.position);
         }
 
+        private void DisableSpawnLimitEnforcement()
+        {
+            var spawnHandler = SingletonComponent<SpawnHandler>.Instance;
+            foreach (var population in spawnHandler.AllSpawnPopulations)
+            {
+                if (population.name == "ModularCar.Population")
+                {
+                    if (population.EnforcePopulationLimits)
+                    {
+                        population.EnforcePopulationLimits = false;
+                        Puts("Disabled spawn limit enforcement for: {0}", population.name);
+                    }
+                    else
+                        Puts("Spawn limit enforcement already disabled for: {0}", population.name);
+                    break;
+                }
+            }
+        }
+
         #endregion
 
         #region Helper Classes
@@ -1366,6 +1391,9 @@ namespace Oxide.Plugins
 
             [JsonProperty("MaxPresetsPerPlayer")]
             public int MaxPresetsPerPlayer = 10;
+
+            [JsonProperty("DisableSpawnLimitEnforcement")]
+            public bool DisableSpawnLimitEnforcement = false;
         }
 
         private PluginConfig GetDefaultConfig()
