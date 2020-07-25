@@ -154,6 +154,8 @@ namespace Oxide.Plugins
         [Command("mycar")]
         private void MyCarCommand(IPlayer player, string cmd, string[] args)
         {
+            if (player.IsServer) return;
+
             if (args.Length == 0)
             {
                 SubCommand_SpawnCar(player, args);
