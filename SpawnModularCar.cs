@@ -12,7 +12,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.6.0")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.6.1")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -290,21 +290,10 @@ namespace Oxide.Plugins
             if (!VerifyOffCooldown(SpawnCarCooldowns, player)) return;
             if (!pluginConfig.CanSpawnBuildingBlocked && !VerifyNotBuildingBlocked(player)) return;
 
-            if (args.Length == 0)
-            {
-                if (permission.UserHasPermission(player.Id, PermissionPresets))
-                {
-                    var preset = GetPlayerConfig(player).FindPreset(DefaultPresetName);
-                    if (preset != null)
-                    {
-                        SpawnPresetCarForPlayer(player, preset);
-                        return;
-                    }
-                }
+            // Key binds automatically pass the "True" argument
+            var wasPassedArgument = args.Length > 0 && args[0] != "True";
 
-                SpawnRandomCarForPlayer(player, maxAllowedSockets);
-            }
-            else
+            if (wasPassedArgument)
             {
                 int desiredSockets;
                 if (int.TryParse(args[0], out desiredSockets))
@@ -333,6 +322,20 @@ namespace Oxide.Plugins
                 if (!VerifyOnlyOneMatchingPreset(player, presetName, out preset)) return;
 
                 SpawnPresetCarForPlayer(player, preset);
+            }
+            else
+            {
+                if (permission.UserHasPermission(player.Id, PermissionPresets))
+                {
+                    var preset = GetPlayerConfig(player).FindPreset(DefaultPresetName);
+                    if (preset != null)
+                    {
+                        SpawnPresetCarForPlayer(player, preset);
+                        return;
+                    }
+                }
+
+                SpawnRandomCarForPlayer(player, maxAllowedSockets);
             }
         }
         
