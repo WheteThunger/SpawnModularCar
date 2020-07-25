@@ -12,7 +12,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.6.1")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.7.0")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -37,6 +37,7 @@ namespace Oxide.Plugins
         private const string PermissionFix = "spawnmodularcar.fix";
         private const string PermissionFetch = "spawnmodularcar.fetch";
         private const string PermissionDespawn = "spawnmodularcar.despawn";
+        private const string PermissionAutoCodeLock = "spawnmodularcar.autocodelock";
         private const string PermissionAutoKeyLock = "spawnmodularcar.autokeylock";
         private const string PermissionDriveUnderwater = "spawnmodularcar.underwater";
         private const string PermissionAutoStartEngine = "spawnmodularcar.autostartengine";
@@ -50,9 +51,14 @@ namespace Oxide.Plugins
         private const string PrefabSockets4 = "assets/content/vehicles/modularcar/4module_car_spawned.entity.prefab";
 
         private const string ItemDropPrefab = "assets/prefabs/misc/item drop/item_drop.prefab";
+        private const string CodeLockPrefab = "assets/prefabs/locks/keypad/lock.code.prefab";
 
         private const string RepairEffectPrefab = "assets/bundled/prefabs/fx/build/promote_toptier.prefab";
         private const string TankerFilledEffectPrefab = "assets/prefabs/food/water jug/effects/water-jug-fill-container.prefab";
+        
+        private readonly Vector3 CodeLockPosition = new Vector3(-0.9f, 0.35f, -0.5f);
+
+        private const int CodeLockItemId = 1159991980;
 
         private readonly Dictionary<string, PlayerConfig> PlayerConfigsMap = new Dictionary<string, PlayerConfig>();
 
@@ -83,6 +89,7 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermissionFix, this);
             permission.RegisterPermission(PermissionFetch, this);
             permission.RegisterPermission(PermissionDespawn, this);
+            permission.RegisterPermission(PermissionAutoCodeLock, this);
             permission.RegisterPermission(PermissionAutoKeyLock, this);
             permission.RegisterPermission(PermissionDriveUnderwater, this);
             permission.RegisterPermission(PermissionAutoStartEngine, this);
@@ -117,16 +124,34 @@ namespace Oxide.Plugins
 
         private void OnEntityKill(ModularCar car)
         {
-            if (pluginData.playerCars.ContainsValue(car.net.ID))
+            if (!IsPlayerCar(car)) return;
+            
+            string userID = pluginData.playerCars.FirstOrDefault(x => x.Value == car.net.ID).Key;
+            BasePlayer player = BasePlayer.Find(userID);
+
+            if (player != null)
+                ChatMessage(player, "Generic.Info.CarDestroyed");
+
+            pluginData.playerCars.Remove(userID);
+        }
+
+        private void OnEntityKill(VehicleModuleSeating seatingModule)
+        {
+            var car = seatingModule.Vehicle as ModularCar;
+            if (car == null) return;
+
+            var codeLock = seatingModule.GetComponentInChildren<CodeLock>();
+            if (codeLock == null) return;
+            
+            codeLock.SetParent(null);
+            NextTick(() =>
             {
-                string userID = pluginData.playerCars.FirstOrDefault(x => x.Value == car.net.ID).Key;
-                BasePlayer player = BasePlayer.Find(userID);
-
-                if (player != null)
-                    ChatMessage(player, "Generic.Info.CarDestroyed");
-
-                pluginData.playerCars.Remove(userID);
-            }
+                var driverModule = car != null ? FindFirstDriverModule(car) : null;
+                if (driverModule != null)
+                    codeLock.SetParent(driverModule);
+                else
+                    codeLock.Kill();
+            });
         }
 
         private void OnEntityMounted(BaseMountable mountable, BasePlayer player)
@@ -145,6 +170,44 @@ namespace Oxide.Plugins
 
             if (car.OwnerID == player.userID && car.CanRunEngines())
                 car.FinishStartingEngine();
+        }
+
+        object CanMountEntity(BasePlayer player, BaseVehicleMountPoint entity)
+        {
+            var car = entity?.GetVehicleParent() as ModularCar;
+            return CanPlayerInteractWithCar(player, car);
+        }
+
+        object CanLootEntity(BasePlayer player, StorageContainer container)
+        {
+            var parent = container.GetParentEntity();
+            var car = parent as ModularCar ?? (parent as VehicleModuleStorage)?.Vehicle as ModularCar;
+            return CanPlayerInteractWithCar(player, car);
+        }
+
+        object CanLootEntity(BasePlayer player, LiquidContainer container)
+        {
+            var car = (container.GetParentEntity() as VehicleModuleStorage)?.Vehicle as ModularCar;
+            return CanPlayerInteractWithCar(player, car);
+        }
+
+        object CanLootEntity(BasePlayer player, ModularCarGarage carLift)
+        {
+            if (!pluginConfig.PreventEditingWhileCodeLockedOut || !carLift.PlatformIsOccupied) return null;
+            return CanPlayerInteractWithCar(player, carLift.carOccupant);
+        }
+
+        private object CanPlayerInteractWithCar(BasePlayer player, ModularCar car)
+        {
+            if (car == null || !IsPlayerCar(car)) return null;
+
+            var codeLock = GetCarCodeLock(car);
+            if (codeLock == null || IsPlayerAuthorizedToCodeLock(player, codeLock)) return null;
+
+            PlayCodeLockDeniedEffect(codeLock);
+            player.ChatMessage(GetMessage(player.IPlayer, "Generic.Error.CarLocked"));
+
+            return false;
         }
 
         #endregion
@@ -204,8 +267,12 @@ namespace Oxide.Plugins
                     SubCommand_DestroyCar(player, args.Skip(1).ToArray());
                     return;
 
-                case "autolock":
-                    SubCommand_ToggleAutoLock(player, args.Skip(1).ToArray());
+                case "autocodelock":
+                    SubCommand_ToggleAutoCodeLock(player, args.Skip(1).ToArray());
+                    return;
+
+                case "autokeylock":
+                    SubCommand_ToggleAutoKeyLock(player, args.Skip(1).ToArray());
                     return;
 
                 case "autofilltankers":
@@ -261,8 +328,11 @@ namespace Oxide.Plugins
                 messages.Add(GetMessage(player, "Command.Help.DeletePreset"));
             }
 
+            if (permission.UserHasPermission(player.Id, PermissionAutoCodeLock))
+                messages.Add(GetMessage(player, "Command.Help.ToggleAutoCodeLock", BooleanToLocalizedString(player, GetPlayerConfig(player).Settings.AutoCodeLock)));
+
             if (permission.UserHasPermission(player.Id, PermissionAutoKeyLock))
-                messages.Add(GetMessage(player, "Command.Help.ToggleAutoLock", BooleanToLocalizedString(player, GetPlayerConfig(player).Settings.AutoKeyLock)));
+                messages.Add(GetMessage(player, "Command.Help.ToggleAutoKeyLock", BooleanToLocalizedString(player, GetPlayerConfig(player).Settings.AutoKeyLock)));
 
             if (permission.UserHasPermission(player.Id, PermissionAutoFillTankers))
                 messages.Add(GetMessage(player, "Command.Help.ToggleAutoFillTankers", BooleanToLocalizedString(player, GetPlayerConfig(player).Settings.AutoFillTankers)));
@@ -614,14 +684,24 @@ namespace Oxide.Plugins
             ReplyToPlayer(player, "Command.DeletePreset.Success", preset.Name);
         }
 
-        private void SubCommand_ToggleAutoLock(IPlayer player, string[] args)
+        private void SubCommand_ToggleAutoCodeLock(IPlayer player, string[] args)
+        {
+            if (!VerifyPermissionAny(player, PermissionAutoCodeLock)) return;
+
+            var config = GetPlayerConfig(player);
+            config.Settings.AutoCodeLock = !config.Settings.AutoCodeLock;
+            config.SaveData();
+            ReplyToPlayer(player, "Command.ToggleAutoCodeLock.Success", BooleanToLocalizedString(player, config.Settings.AutoCodeLock));
+        }
+
+        private void SubCommand_ToggleAutoKeyLock(IPlayer player, string[] args)
         {
             if (!VerifyPermissionAny(player, PermissionAutoKeyLock)) return;
 
             var config = GetPlayerConfig(player);
             config.Settings.AutoKeyLock = !config.Settings.AutoKeyLock;
             config.SaveData();
-            ReplyToPlayer(player, "Command.AutoKeyLock.Success", BooleanToLocalizedString(player, config.Settings.AutoKeyLock));
+            ReplyToPlayer(player, "Command.ToggleAutoKeyLock.Success", BooleanToLocalizedString(player, config.Settings.AutoKeyLock));
         }
 
         private void SubCommand_ToggleAutoFillTankers(IPlayer player, string[] args)
@@ -631,7 +711,7 @@ namespace Oxide.Plugins
             var config = GetPlayerConfig(player);
             config.Settings.AutoFillTankers = !config.Settings.AutoFillTankers;
             config.SaveData();
-            ReplyToPlayer(player, "Command.AutoFillTankers.Success", BooleanToLocalizedString(player, config.Settings.AutoFillTankers));
+            ReplyToPlayer(player, "Command.ToggleAutoFillTankers.Success", BooleanToLocalizedString(player, config.Settings.AutoFillTankers));
         }
 
         #endregion
@@ -742,6 +822,9 @@ namespace Oxide.Plugins
         #endregion
 
         #region Helper Methods - Cars
+
+        private bool IsPlayerCar(ModularCar car) =>
+            pluginData.playerCars.ContainsValue(car.net.ID);
 
         private int SortPresetNames(CarPreset a, CarPreset b) =>
             a.Name.ToLower() == DefaultPresetName ? -1 :
@@ -881,9 +964,36 @@ namespace Oxide.Plugins
             {
                 FixCar(car, GetPlayerEnginePartsTier(player.UserIDString));
                 MaybeFillTankerModules(car, player.UserIDString);
-                MaybeAutoLockCarForPlayer(car, player);
+                MaybeAutoCodeLockForPlayer(car, player);
+                MaybeAutoKeyLockCarForPlayer(car, player);
                 onReady?.Invoke(car);
             });
+        }
+
+        private CodeLock GetCarCodeLock(ModularCar car) =>
+            car.GetSlot(BaseEntity.Slot.Lock) as CodeLock;
+
+        private bool IsPlayerAuthorizedToCodeLock(BasePlayer player, CodeLock codeLock) =>
+            !codeLock.IsLocked() || 
+            codeLock.whitelistPlayers.Contains(player.userID) || 
+            codeLock.guestPlayers.Contains(player.userID);
+
+        private void PlayCodeLockDeniedEffect(CodeLock codeLock) =>
+            Effect.server.Run(codeLock.effectDenied.resourcePath, codeLock, 0, Vector3.zero, Vector3.forward);
+        
+        private VehicleModuleSeating FindFirstDriverModule(ModularCar car)
+        {
+            for (int socketIndex = 0; socketIndex < car.TotalSockets; socketIndex++)
+            {
+                BaseVehicleModule module;
+                if (car.TryGetModuleAt(socketIndex, out module))
+                {
+                    var seatingModule = module as VehicleModuleSeating;
+                    if (seatingModule != null && seatingModule.HasADriverSeat())
+                        return seatingModule;
+                }
+            }
+            return null;
         }
 
         private void EnableCarUnderwater(ModularCar car)
@@ -1147,7 +1257,78 @@ namespace Oxide.Plugins
                         (child as BasePlayer).SetParent(null, worldPositionStays: true);
         }
 
-        private bool MaybeAutoLockCarForPlayer(ModularCar car, BasePlayer player)
+        private void MaybeAutoCodeLockForPlayer(ModularCar car, BasePlayer player)
+        {
+            if (permission.UserHasPermission(player.UserIDString, PermissionAutoCodeLock) &&
+                GetPlayerConfig(player.UserIDString).Settings.AutoCodeLock &&
+                !car.carLock.HasALock &&
+                car.carLock.CanHaveALock())
+            {
+                var driverModule = FindFirstDriverModule(car);
+                if (driverModule == null) return;
+
+                var codeLock = GameManager.server.CreateEntity(CodeLockPrefab) as CodeLock;
+                codeLock.OwnerID = player.userID;
+                codeLock.Spawn();
+                codeLock.transform.SetPositionAndRotation(CodeLockPosition, Quaternion.identity);
+                codeLock.SetParent(driverModule);
+                car.SetSlot(BaseEntity.Slot.Lock, codeLock);
+
+                // Support for other plugins
+                CallOnItemDeployedHook(car, player);
+            }
+        }
+
+        private void CallOnItemDeployedHook(ModularCar car, BasePlayer player)
+        {
+            // Try to use a lock from the player's inventory
+            var codeLockItem = player.inventory.FindItemID(CodeLockItemId);
+            bool wasItemGiven = false;
+            Item itemDisplaced = null;
+
+            if (codeLockItem == null)
+            {
+                codeLockItem = ItemManager.CreateByItemID(CodeLockItemId);
+
+                // Ty to give a lock to the player since they don't have one
+                if (player.inventory.GiveItem(codeLockItem))
+                    wasItemGiven = true;
+                else
+                {
+                    var inventory = player.inventory.containerMain;
+                    if (inventory.capacity > 0)
+                    {
+                        // Temporarily displace an item since the player inventory is full
+                        itemDisplaced = inventory.GetSlot(0);
+                        itemDisplaced.RemoveFromContainer();
+
+                        if (codeLockItem.MoveToContainer(inventory, 0))
+                            wasItemGiven = true;
+                    }
+                }
+            }
+
+            Interface.CallHook("OnItemDeployed", codeLockItem.GetHeldEntity(), car);
+
+            if (wasItemGiven)
+            {
+                codeLockItem.RemoveFromContainer();
+                codeLockItem.Remove();
+
+                if (itemDisplaced != null)
+                    if (!itemDisplaced.MoveToContainer(player.inventory.containerMain, 0))
+                        codeLockItem.DropAndTossUpwards(player.GetDropPosition());
+            }
+            else
+            {
+                codeLockItem.amount--;
+                codeLockItem.MarkDirty();
+                if (codeLockItem.amount <= 0)
+                    codeLockItem.Remove();
+            }
+        }
+
+        private bool MaybeAutoKeyLockCarForPlayer(ModularCar car, BasePlayer player)
         {
             if (permission.UserHasPermission(player.UserIDString, PermissionAutoKeyLock) && 
                 GetPlayerConfig(player.UserIDString).Settings.AutoKeyLock &&
@@ -1301,6 +1482,7 @@ namespace Oxide.Plugins
                 ["Generic.Error.PresetMultipleMatches"] = "Error: Multiple presets found matching <color=yellow>{0}</color>. Use <color=yellow>mycar list</color> to view your presets.",
                 ["Generic.Error.PresetAlreadyTaken"] = "Error: Preset <color=yellow>{0}</color> is already taken.",
                 ["Generic.Error.PresetNameLength"] = "Error: Preset name may not be longer than {0} characters.",
+                ["Generic.Error.CarLocked"] = "That vehicle is locked.",
                 ["Generic.Info.CarDestroyed"] = "Your modular car was destroyed.",
                 ["Generic.Info.PartsRecovered"] = "Recovered engine components were added to your inventory or dropped in front of you.",
                 ["Command.Spawn.Error.SocketSyntax"] = "Syntax: <color=yellow>mycar <2|3|4></color>",
@@ -1324,8 +1506,9 @@ namespace Oxide.Plugins
                 ["Command.RenamePreset.Success"] = "Renamed <color=yellow>{0}</color> preset to <color=yellow>{1}</color>",
                 ["Command.List"] = "Your saved modular car presets:",
                 ["Command.List.Item"] = "<color=yellow>{0}</color> ({1} sockets)",
-                ["Command.AutoKeyLock.Success"] = "<color=yellow>AutoLock</color> set to {0}",
-                ["Command.AutoFillTankers.Success"] = "<color=yellow>AutoFillTankers</color> set to {0}",
+                ["Command.ToggleAutoCodeLock.Success"] = "<color=yellow>AutoCodeLock</color> set to {0}",
+                ["Command.ToggleAutoKeyLock.Success"] = "<color=yellow>AutoKeyLock</color> set to {0}",
+                ["Command.ToggleAutoFillTankers.Success"] = "<color=yellow>AutoFillTankers</color> set to {0}",
                 ["Command.Help"] = "<color=orange>SpawnModularCar Command Usages</color>",
                 ["Command.Help.Spawn.Basic"] = "<color=yellow>mycar</color> - Spawn a random car with max allowed sockets",
                 ["Command.Help.Spawn.Basic.PresetsAllowed"] = "<color=yellow>mycar</color> - Spawn a car using your <color=yellow>default</color> preset if saved, else spawn a random car with max allowed sockets",
@@ -1340,7 +1523,8 @@ namespace Oxide.Plugins
                 ["Command.Help.LoadPreset"] = "<color=yellow>mycar load <name></color> - Load a preset onto your car",
                 ["Command.Help.RenamePreset"] = "<color=yellow>mycar rename <name> <new_name></color> - Rename a preset",
                 ["Command.Help.DeletePreset"] = "<color=yellow>mycar delete <name></color> - Delete a preset",
-                ["Command.Help.ToggleAutoLock"] = "<color=yellow>mycar autolock</color> - Toggle auto lock: {0}",
+                ["Command.Help.ToggleAutoCodeLock"] = "<color=yellow>mycar autocodelock</color> - Toggle AutoCodeLock: {0}",
+                ["Command.Help.ToggleAutoKeyLock"] = "<color=yellow>mycar autokeylock</color> - Toggle AutoKeyLock: {0}",
                 ["Command.Help.ToggleAutoFillTankers"] = "<color=yellow>mycar autofilltankers</color> - Toggle automatic filling of tankers with fresh water: {0}",
             }, this);
         }
@@ -1400,6 +1584,9 @@ namespace Oxide.Plugins
 
             [JsonProperty("DisableSpawnLimitEnforcement")]
             public bool DisableSpawnLimitEnforcement = false;
+
+            [JsonProperty("PreventEditingWhileCodeLockedOut")]
+            public bool PreventEditingWhileCodeLockedOut = false;
         }
 
         private PluginConfig GetDefaultConfig()
@@ -1525,6 +1712,9 @@ namespace Oxide.Plugins
 
         internal class PlayerSettings
         {
+            [JsonProperty("AutoCodeLock")]
+            public bool AutoCodeLock = false;
+
             [JsonProperty("AutoKeyLock")]
             public bool AutoKeyLock = false;
 

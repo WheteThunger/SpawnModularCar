@@ -8,17 +8,19 @@
 - `mycar <name>` -- Spawn a modular car from the specified preset. Partial name matching supported. See presets section for more details.
 
 When a modular car is spawned, it will be at full health and contain maximum fuel. Additionally, depending on your granted permissions and personal settings:
-- It may be automatically locked, with a matching key added to your inventory.
+- It may automatically have a code lock.
+- It may automatically have a key lock, with a matching key added to your inventory.
 - All tanker modules may be automatically filled with fresh water.
 - All engine modules may be automatically filled with your highest allowed quality of engine components.
 
 ### Other commands
-- `mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoLock` setting. Engine components will also be repaired. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, missing engine components are added, and lower quality components are replaced with the maximum quality you are allowed. Note: This command cannot restore your car if it is "dead" (0 health on every module).
+- `mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoCodeLock` or `AutoKeyLock` setting. Engine components will also be repaired. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, missing engine components are added, and lower quality components are replaced with the maximum quality you are allowed. Note: This command cannot restore your car if it is "dead" (0 health on every module).
 - `mycar fetch` -- Teleport your car to you in an upright position.
 - `mycar destroy` -- Destroy your car, allowing you to spawn a new one.
   - Non-empty storage modules will drop a bag with their items next to where the car was located.
   - If the car's engine modules contained components that are of higher quality than are allowed by your `spawnmodularcar.engineparts.*` permissions, those will be added to your inventory if there is space, else dropped to the ground in front of you.
-- `mycar autolock` -- Toggle AutoLock. While ON, spawning your car will automatically create a lock and add a matching key to your inventory. Note: This only happens if the car has at least one cockpit module.
+- `mycar autocodelock` -- Toggle AutoCodeLock. While ON, spawning your car will automatically create a code lock and add it to the front-most cockpit module if it has one.
+- `mycar autokeylock` -- Toggle AutoKeyLock. While ON, spawning your car will automatically create a key lock and add a matching key to your inventory. Note: This only happens if the car has at least one cockpit module.
 - `mycar autofilltankers` -- Toggle AutoFillTankers. While ON, spawning your car, fixing it, or loading a preset will automatically fill any tanker modules to maximum capacity with fresh water, replacing any salt water already in them.
 - `mycar help` -- Print a list of available commands and their usage. Only shows commands allowed by your permissions.
 
@@ -31,7 +33,7 @@ Players can save custom module configurations, allowing them to spawn a car or u
 - `mycar update <name>` -- Overwrite an existing preset with your car's current module configuration.
 - `mycar load <name>` -- Load the specified preset (partial name matching supported) onto your existing car, replacing any modules that don't match the preset. Loading a preset is not allowed if your current car is occupied or if it has a different number of sockets than the preset.
   - The car will be fixed according to the same rules as `mycar fix`.
-  - The car's lock will be removed if the car no longer has at least one cockpit module.
+  - The car's locks will be removed if the car no longer has at least one cockpit module.
   - Non-empty storage modules that were replaced will drop a bag with their items next to the car.
   - Any engine components of higher quality than are allowed by your `spawnmodularcar.engineparts.*` permissions will be redistributed throughout the engine modules in the loaded preset, with the highest quality parts towards the front-most engine modules. If any engine components are left over, those will be added to your inventory if there is space, else dropped to the ground in front of you.
 - `mycar rename <name> <new name>` -- Rename a preset.
@@ -55,7 +57,8 @@ Misc:
 - `spawnmodularcar.fix` -- Required to use `mycar fix`.
 - `spawnmodularcar.fetch` -- Required to use `mycar fetch`.
 - `spawnmodularcar.despawn` -- Required to use `mycar destroy`.
-- `spawnmodularcar.autokeylock` -- Required to use automatic locking (i.e., `mycar autolock`).
+- `spawnmodularcar.autocodelock` -- Required to use the automatic code lock feature (i.e., `mycar autocodelock`).
+- `spawnmodularcar.autokeylock` -- Required to use the automatic key lock feature (i.e., `mycar autokeylock`).
 - `spawnmodularcar.autofilltankers` - Required to use automatic filling of tanker modules (i.e. `mycar autofilltankers`).
 - `spawnmodularcar.underwater` -- Allows your car to be driven underwater (scuba gear is recommended). Note: Underwater driving is noticeably slower than on land.
 - `spawnmodularcar.autostartengine` -- Instantly start your car's engine when you get in.
@@ -80,7 +83,8 @@ Misc:
   "DisableSpawnLimitEnforcement": false,
   "DismountPlayersOnFetch": true,
   "EnableEffects": true,
-  "MaxPresetsPerPlayer": 10
+  "MaxPresetsPerPlayer": 10,
+  "PreventEditingWhileCodeLockedOut": false
 }
 ```
 
@@ -89,11 +93,12 @@ Misc:
 - `CanFetchWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to fetch their car while they are building blocked. Recommended to be set to `false` to avoid exploits where people use the car to get through a wall.
 - `CanSpawnWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to spawn their car while they are building blocked. Recommended to be set to `false` to avoid exploits where people use the car to get through a wall.
 - `Cooldowns` -- Various cooldowns for balancing. These were primarily implemented to prevent spamming, so they are not currently tracked across plugin reloads or server restarts, so setting them very high (e.g., hours or days) may not always work as intended.
-- `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the owner player's inventory when they use `mycar destroy`. Also applies to when they use `mycar load` and the lock is removed because the preset contains no cockpit modules. I recommend this be set to `true`, especially if you are allowing players to use the automatic locking feature since that spawns keys which may otherwise clutter the player's inventory.
+- `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the owner player's inventory when they use `mycar destroy`. Also applies to when they use `mycar load` and the lock is removed because the preset contains no cockpit modules. I recommend this be set to `true`, especially if you are allowing players to use the automatic key lock feature since that spawns keys which may otherwise clutter the player's inventory.
 - `DisableSpawnLimitEnforcement` (`true` or `false`) -- Set to `true` to keep all modular cars between server restarts. Otherwise, the game will delete extra cars beyond the server's configured modular car population, which *may* delete player cars depending on how recently they were spawned.
 - `DismountPlayersOnFetch` (`true` or `false`) -- Whether to dismount all players from a car when it is fetched. Has no effect unless `CanFetchWhileOccupied` is also `true`.
 - `EnableEffects` (`true` or `false`) -- Enable audio and visual effects when spawning a car from a preset, using `mycar fix` or `mycar load`.
-- `MaxPresetsPerPlayer` -- The maximum number of module configuration presets each player is allowed to save.
+- `MaxPresetsPerPlayer` (`true` or `false`) -- The maximum number of module configuration presets each player is allowed to save.
+- `PreventEditingWhileCodeLockedOut` -- Whether to prevent players from editing the vehicle on a lift when they are not authorized to the car's code lock. Authorized players can still edit the vehicle regardless.
 
 ## Localization
 
@@ -113,6 +118,7 @@ Misc:
   "Generic.Error.PresetMultipleMatches": "Error: Multiple presets found matching <color=yellow>{0}</color>. Use <color=yellow>mycar list</color> to view your presets.",
   "Generic.Error.PresetAlreadyTaken": "Error: Preset <color=yellow>{0}</color> is already taken.",
   "Generic.Error.PresetNameLength": "Error: Preset name may not be longer than {0} characters.",
+  "Generic.Error.CarLocked": "That vehicle is locked.",
   "Generic.Info.CarDestroyed": "Your modular car was destroyed.",
   "Generic.Info.PartsRecovered": "Recovered engine components were added to your inventory or dropped in front of you.",
   "Command.Spawn.Error.SocketSyntax": "Syntax: <color=yellow>mycar <2|3|4></color>",
@@ -136,8 +142,9 @@ Misc:
   "Command.RenamePreset.Success": "Renamed <color=yellow>{0}</color> preset to <color=yellow>{1}</color>",
   "Command.List": "Your saved modular car presets:",
   "Command.List.Item": "<color=yellow>{0}</color> ({1} sockets)",
-  "Command.AutoKeyLock.Success": "<color=yellow>AutoLock</color> set to {0}",
-  "Command.AutoFillTankers.Success": "<color=yellow>AutoFillTankers</color> set to {0}",
+  "Command.ToggleAutoCodeLock.Success": "<color=yellow>AutoCodeLock</color> set to {0}",
+  "Command.ToggleAutoKeyLock.Success": "<color=yellow>AutoKeyLock</color> set to {0}",
+  "Command.ToggleAutoFillTankers.Success": "<color=yellow>AutoFillTankers</color> set to {0}",
   "Command.Help": "<color=orange>SpawnModularCar Command Usages</color>",
   "Command.Help.Spawn.Basic": "<color=yellow>mycar</color> - Spawn a random car with max allowed sockets",
   "Command.Help.Spawn.Basic.PresetsAllowed": "<color=yellow>mycar</color> - Spawn a car using your <color=yellow>default</color> preset if saved, else spawn a random car with max allowed sockets",
@@ -152,7 +159,8 @@ Misc:
   "Command.Help.LoadPreset": "<color=yellow>mycar load <name></color> - Load a preset onto your car",
   "Command.Help.RenamePreset": "<color=yellow>mycar rename <name> <new_name></color> - Rename a preset",
   "Command.Help.DeletePreset": "<color=yellow>mycar delete <name></color> - Delete a preset",
-  "Command.Help.ToggleAutoLock": "<color=yellow>mycar autolock</color> - Toggle auto lock: {0}",
+  "Command.Help.ToggleAutoCodeLock": "<color=yellow>mycar autocodelock</color> - Toggle AutoCodeLock: {0}",
+  "Command.Help.ToggleAutoKeyLock": "<color=yellow>mycar autokeylock</color> - Toggle AutoKeyLock: {0}",
   "Command.Help.ToggleAutoFillTankers": "<color=yellow>mycar autofilltankers</color> - Toggle automatic filling of tankers with fresh water: {0}"
 }
 ```
