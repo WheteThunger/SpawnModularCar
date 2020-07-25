@@ -106,6 +106,7 @@ namespace Oxide.Plugins
         private void Unload()
         {
             Interface.Oxide.DataFileSystem.WriteObject(Name, pluginData);
+            pluginInstance = null;
         }
 
         private void OnNewSave(string filename)
