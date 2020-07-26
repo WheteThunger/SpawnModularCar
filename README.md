@@ -8,10 +8,10 @@
 - `mycar <name>` -- Spawn a modular car from the specified preset. Partial name matching supported. See presets section for more details.
 
 When a modular car is spawned, it will be at full health. Additionally, depending on your granted permissions and personal settings:
-- It may be fueled.
+- It may be fueled (amount is configurable).
 - It may automatically have a code lock.
 - It may automatically have a key lock, with a matching key added to your inventory.
-- All tanker modules may be automatically filled with fresh water.
+- All tanker modules may be automatically filled with fresh water (amount is configurable).
 - All engine modules may be automatically filled with your highest allowed quality of engine components.
 
 ### Other commands
@@ -22,7 +22,7 @@ When a modular car is spawned, it will be at full health. Additionally, dependin
   - If the car's engine modules contained components that are of higher quality than are allowed by your `spawnmodularcar.engineparts.*` permissions, those will be added to your inventory if there is space, else dropped to the ground in front of you.
 - `mycar autocodelock` -- Toggle AutoCodeLock. While ON, spawning your car will automatically create a code lock and add it to the front-most cockpit module if it has one.
 - `mycar autokeylock` -- Toggle AutoKeyLock. While ON, spawning your car will automatically create a key lock and add a matching key to your inventory. Note: This only happens if the car has at least one cockpit module.
-- `mycar autofilltankers` -- Toggle AutoFillTankers. While ON, spawning your car, fixing it, or loading a preset will automatically fill any tanker modules to maximum capacity with fresh water, replacing any salt water already in them.
+- `mycar autofilltankers` -- Toggle AutoFillTankers. While ON, spawning your car, fixing it, or loading a preset will automatically fill any tanker modules to allowed capacity (configurable) with fresh water, replacing any salt water already in them.
 - `mycar help` -- Print a list of available commands and their usage. Only shows commands allowed by your permissions.
 
 ### Preset-related commands
@@ -85,6 +85,7 @@ Misc:
   "DisableSpawnLimitEnforcement": false,
   "DismountPlayersOnFetch": true,
   "EnableEffects": true,
+  "FreshWaterAmount": -1,
   "FuelAmount": -1,
   "MaxPresetsPerPlayer": 10,
   "PreventEditingWhileCodeLockedOut": false
@@ -100,6 +101,7 @@ Misc:
 - `DisableSpawnLimitEnforcement` (`true` or `false`) -- Set to `true` to keep all modular cars between server restarts. Otherwise, the game will delete extra cars beyond the server's configured modular car population, which *may* delete player cars depending on how recently they were spawned.
 - `DismountPlayersOnFetch` (`true` or `false`) -- Whether to dismount all players from a car when it is fetched. Has no effect unless `CanFetchWhileOccupied` is also `true`.
 - `EnableEffects` (`true` or `false`) -- Enable audio and visual effects when spawning a car from a preset, using `mycar fix` or `mycar load`.
+- `FreshWaterAmount` -- The amount of fresh water to add to each of the car's tanker modules when spawning. Only applies if the player has the `spawnmodularcar.autofilltankers` permission and has the AutoFillTankers setting on. Defaults to `-1` which represents maximum stack size. Note: If for some reason the car has multiple tankers (i.e., no other modules), this amount will be added to each one.
 - `FuelAmount` -- The amount of low grade fuel to add to the fuel tank when spawning. Only applies if the player has the `spawnmodularcar.autofuel` permission. When fixing the car or loading a preset, only the amount missing will be added to reach this minimum target value. Defaults to `-1` which represents maximum stack size.
 - `MaxPresetsPerPlayer` -- The maximum number of module configuration presets each player is allowed to save.
 - `PreventEditingWhileCodeLockedOut` (`true` or `false`) -- Whether to prevent players from editing the vehicle on a lift when they are not authorized to the car's code lock. Authorized players can still edit the vehicle regardless.

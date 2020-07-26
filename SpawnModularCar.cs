@@ -12,7 +12,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "2.0.1")]
+    [Info("Spawn Modular Car", "WhiteThunder", "2.1.0")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -425,10 +425,7 @@ namespace Oxide.Plugins
             if (!VerifyOffCooldown(FixCarCooldowns, player)) return;
 
             FixCar(car, GetPlayerAllowedFuel(player.Id), GetPlayerEnginePartsTier(player.Id));
-
-            if (ShouldTryFillTankersForPlayer(player))
-                TryFillTankerModules(car);
-            
+            MaybeFillTankerModules(car, GetPlayerAllowedFreshWater(player.Id));
             FixCarCooldowns.UpdateLastUsedForPlayer(player.Id);
 
             MaybePlayCarRepairEffects(car);
@@ -620,9 +617,8 @@ namespace Oxide.Plugins
                 // Restart the engine if it turned off during the brief moment it had no engine or no parts
                 if (wasEngineOn && !car.IsOn() && car.CanRunEngines()) car.FinishStartingEngine();
 
-                if (ShouldTryFillTankersForPlayer(player))
-                    TryFillTankerModules(car);
-
+                MaybeFillTankerModules(car, GetPlayerAllowedFreshWater(player.Id));
+                
                 if (car.carLock.HasALock && !car.carLock.CanHaveALock())
                 {
                     MaybeRemoveMatchingKeysFromPlayer(basePlayer, car);
@@ -881,6 +877,9 @@ namespace Oxide.Plugins
         private Quaternion GetIdealCarRotation(BasePlayer player) =>
             Quaternion.Euler(0, player.GetNetworkRotation().eulerAngles.y - 90, 0);
 
+        private int GetPlayerAllowedFreshWater(string userID) =>
+            permission.UserHasPermission(userID, PermissionAutoFillTankers) && GetPlayerConfig(userID).Settings.AutoFillTankers ? pluginConfig.FreshWaterAmount : 0;
+
         private int GetPlayerAllowedFuel(string userID) =>
             permission.UserHasPermission(userID, PermissionAutoFuel) ? pluginConfig.FuelAmount : 0;
 
@@ -975,9 +974,7 @@ namespace Oxide.Plugins
             NextTick(() =>
             {
                 FixCar(car, GetPlayerAllowedFuel(player.UserIDString), GetPlayerEnginePartsTier(player.UserIDString));
-                
-                if (ShouldTryFillTankersForPlayer(player.IPlayer))
-                    TryFillTankerModules(car);
+                MaybeFillTankerModules(car, GetPlayerAllowedFreshWater(player.UserIDString));
 
                 if (ShouldTryAddCodeLockForPlayer(player.IPlayer))
                     TryAddCodeLockForPlayer(car, player);
@@ -1360,35 +1357,48 @@ namespace Oxide.Plugins
             }
         }
 
-        private bool ShouldTryFillTankersForPlayer(IPlayer player) =>
-            player.HasPermission(PermissionAutoFillTankers) && GetPlayerConfig(player).Settings.AutoFillTankers;
-
-        private void TryFillTankerModules(ModularCar car)
+        private void MaybeFillTankerModules(ModularCar car, int specifiedLiquidAmount)
         {
+            if (specifiedLiquidAmount == 0) return;
+
             foreach (var module in car.AttachedModuleEntities)
             {
-                if (module is VehicleModuleStorage)
-                {
-                    var container = (module as VehicleModuleStorage).GetContainer();
-                    if (container is LiquidContainer)
-                    {
-                        var liquidContainer = (container as LiquidContainer);
+                var liquidContainer = (module as VehicleModuleStorage)?.GetContainer() as LiquidContainer;
+                if (liquidContainer == null) continue;
 
-                        // Remove existing liquid such as salt water
-                        var liquidItem = liquidContainer.GetLiquidItem();
-                        if (liquidItem != null)
-                        {
-                            liquidItem.RemoveFromContainer();
-                            liquidItem.Remove();
-                        }
-
-                        liquidContainer.inventory.AddItem(liquidContainer.defaultLiquid, liquidContainer.maxStackSize);
-
-                        if (pluginConfig.EnableEffects)
-                            Effect.server.Run(TankerFilledEffectPrefab, module.transform.position);
-                    }
-                }
+                if (FillLiquidContainer(liquidContainer, specifiedLiquidAmount) && pluginConfig.EnableEffects)
+                    Effect.server.Run(TankerFilledEffectPrefab, module.transform.position);
             }
+        }
+
+        private bool FillLiquidContainer(LiquidContainer liquidContainer, int specifiedAmount)
+        {
+            var targetAmount = specifiedAmount == -1 ? liquidContainer.maxStackSize : specifiedAmount;
+            var defaultItem = liquidContainer.defaultLiquid;
+            var existingItem = liquidContainer.GetLiquidItem();
+
+            if (existingItem == null)
+            {
+                liquidContainer.inventory.AddItem(defaultItem, targetAmount);
+                return true;
+            }
+
+            if (existingItem.info.itemid != defaultItem.itemid)
+            {
+                // Remove other liquid such as salt water
+                existingItem.RemoveFromContainer();
+                existingItem.Remove();
+                liquidContainer.inventory.AddItem(defaultItem, targetAmount);
+                return true;
+            }
+            
+            if (existingItem.amount >= targetAmount)
+                // Nothing added in this case
+                return false;
+
+            existingItem.amount = targetAmount;
+            existingItem.MarkDirty();
+            return true;
         }
 
         private void MaybePlayCarRepairEffects(ModularCar car)
@@ -1583,6 +1593,9 @@ namespace Oxide.Plugins
 
             [JsonProperty("EnableEffects")]
             public bool EnableEffects = true;
+
+            [JsonProperty("FreshWaterAmount")]
+            public int FreshWaterAmount = -1;
 
             [JsonProperty("FuelAmount")]
             public int FuelAmount = -1;
