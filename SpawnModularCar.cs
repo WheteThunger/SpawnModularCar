@@ -425,7 +425,10 @@ namespace Oxide.Plugins
             if (!VerifyOffCooldown(FixCarCooldowns, player)) return;
 
             FixCar(car, GetPlayerAllowedFuel(player.Id), GetPlayerEnginePartsTier(player.Id));
-            MaybeFillTankerModules(car, player.Id);
+
+            if (ShouldTryFillTankersForPlayer(player))
+                TryFillTankerModules(car);
+            
             FixCarCooldowns.UpdateLastUsedForPlayer(player.Id);
 
             MaybePlayCarRepairEffects(car);
@@ -617,7 +620,8 @@ namespace Oxide.Plugins
                 // Restart the engine if it turned off during the brief moment it had no engine or no parts
                 if (wasEngineOn && !car.IsOn() && car.CanRunEngines()) car.FinishStartingEngine();
 
-                MaybeFillTankerModules(car, player.Id);
+                if (ShouldTryFillTankersForPlayer(player))
+                    TryFillTankerModules(car);
 
                 if (car.carLock.HasALock && !car.carLock.CanHaveALock())
                 {
@@ -906,7 +910,7 @@ namespace Oxide.Plugins
 
         private void SpawnRandomCarForPlayer(IPlayer player, int desiredSockets)
         {
-            SpawnCarForPlayer(player.Object as BasePlayer, desiredSockets, null, car =>
+            SpawnCarForPlayer(player.Object as BasePlayer, desiredSockets, null, shouldTrackCar: true, onReady: car =>
             {
                 var chatMessages = new List<string> { GetMessage(player, "Command.Spawn.Success") };
 
@@ -925,7 +929,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            SpawnCarForPlayer(player.Object as BasePlayer, preset.NumSockets, preset, car =>
+            SpawnCarForPlayer(player.Object as BasePlayer, preset.NumSockets, preset, shouldTrackCar: true, onReady: car =>
             {
                 var chatMessages = new List<string> { GetMessage(player, "Command.Spawn.Success.Preset", preset.Name) };
 
@@ -939,7 +943,7 @@ namespace Oxide.Plugins
             });
         }
 
-        private void SpawnCarForPlayer(BasePlayer player, int desiredSockets, PlayerCarPreset preset = null, Action<ModularCar> onReady = null)
+        private void SpawnCarForPlayer(BasePlayer player, int desiredSockets, PlayerCarPreset preset = null, bool shouldTrackCar = false, Action<ModularCar> onReady = null)
         {
             string prefabName;
             if (desiredSockets == 4) prefabName = PrefabSockets4;
@@ -956,22 +960,31 @@ namespace Oxide.Plugins
             if (preset != null)
                 car.spawnSettings = MakeSpawnSettings(preset.ModuleIDs);
 
+            car.OwnerID = player.userID;
             car.Spawn();
 
-            if (permission.UserHasPermission(player.UserIDString, PermissionDriveUnderwater))
-                EnableCarUnderwater(car);
+            if (shouldTrackCar)
+            {
+                if (permission.UserHasPermission(player.UserIDString, PermissionDriveUnderwater))
+                    EnableCarUnderwater(car);
 
-            car.OwnerID = player.userID;
-            pluginData.playerCars.Add(player.UserIDString, car.net.ID);
-
-            SpawnCarCooldowns.UpdateLastUsedForPlayer(player.UserIDString);
+                pluginData.playerCars.Add(player.UserIDString, car.net.ID);
+                SpawnCarCooldowns.UpdateLastUsedForPlayer(player.UserIDString);
+            }
 
             NextTick(() =>
             {
                 FixCar(car, GetPlayerAllowedFuel(player.UserIDString), GetPlayerEnginePartsTier(player.UserIDString));
-                MaybeFillTankerModules(car, player.UserIDString);
-                MaybeAutoCodeLockForPlayer(car, player);
-                MaybeAutoKeyLockCarForPlayer(car, player);
+                
+                if (ShouldTryFillTankersForPlayer(player.IPlayer))
+                    TryFillTankerModules(car);
+
+                if (ShouldTryAddCodeLockForPlayer(player.IPlayer))
+                    TryAddCodeLockForPlayer(car, player);
+
+                if (ShouldTryAddKeyLockForPlayer(player.IPlayer))
+                    TryAddKeyLockCarForPlayer(car, player);
+
                 onReady?.Invoke(car);
             });
         }
@@ -1281,60 +1294,58 @@ namespace Oxide.Plugins
                         (child as BasePlayer).SetParent(null, worldPositionStays: true);
         }
 
-        private void MaybeAutoCodeLockForPlayer(ModularCar car, BasePlayer player)
+        private bool ShouldTryAddCodeLockForPlayer(IPlayer player) =>
+            player.HasPermission(PermissionAutoCodeLock) && GetPlayerConfig(player).Settings.AutoCodeLock;
+
+        private bool TryAddCodeLockForPlayer(ModularCar car, BasePlayer player)
         {
-            if (permission.UserHasPermission(player.UserIDString, PermissionAutoCodeLock) &&
-                GetPlayerConfig(player.UserIDString).Settings.AutoCodeLock &&
-                !car.carLock.HasALock &&
-                car.carLock.CanHaveALock())
+            if (!car.carLock.CanHaveALock()) return false;
+
+            var driverModule = FindFirstDriverModule(car);
+            if (driverModule == null) return false;
+
+            var codeLock = GameManager.server.CreateEntity(CodeLockPrefab, CodeLockPosition, Quaternion.identity) as CodeLock;
+            if (codeLock == null) return false;
+
+            codeLock.OwnerID = player.userID;
+            codeLock.SetParent(driverModule);
+            codeLock.Spawn();
+            car.SetSlot(BaseEntity.Slot.Lock, codeLock);
+
+            Effect.server.Run(CodeLockDeployedEffectPrefab, codeLock.transform.position);
+
+            // Allow other plugins to detect the lock being deployed (e.g., auto lock)
+            var codeLockItem = player.inventory.FindItemID(CodeLockItemId);
+            if (codeLockItem != null)
             {
-                var driverModule = FindFirstDriverModule(car);
-                if (driverModule == null) return;
-
-                var codeLock = GameManager.server.CreateEntity(CodeLockPrefab, CodeLockPosition, Quaternion.identity) as CodeLock;
-                if (codeLock == null) return;
-
-                codeLock.OwnerID = player.userID;
-                codeLock.SetParent(driverModule);
-                codeLock.Spawn();
-                car.SetSlot(BaseEntity.Slot.Lock, codeLock);
-
-                Effect.server.Run(CodeLockDeployedEffectPrefab, codeLock.transform.position);
-
-                // Allow other plugins to detect the lock being deployed (e.g., auto lock)
-                var codeLockItem = player.inventory.FindItemID(CodeLockItemId);
-                if (codeLockItem != null)
-                {
-                    Interface.CallHook("OnItemDeployed", codeLockItem.GetHeldEntity(), car);
-                }
-                else
-                {
-                    // Temporarily increase the player inventory capacity to ensure there is enough space
-                    player.inventory.containerMain.capacity++;
-                    var temporaryLockItem = ItemManager.CreateByItemID(CodeLockItemId);
-                    if (player.inventory.GiveItem(temporaryLockItem))
-                    {
-                        Interface.CallHook("OnItemDeployed", temporaryLockItem.GetHeldEntity(), car);
-                        temporaryLockItem.RemoveFromContainer();
-                    }
-                    temporaryLockItem.Remove();
-                    player.inventory.containerMain.capacity--;
-                }
+                Interface.CallHook("OnItemDeployed", codeLockItem.GetHeldEntity(), car);
             }
+            else
+            {
+                // Temporarily increase the player inventory capacity to ensure there is enough space
+                player.inventory.containerMain.capacity++;
+                var temporaryLockItem = ItemManager.CreateByItemID(CodeLockItemId);
+                if (player.inventory.GiveItem(temporaryLockItem))
+                {
+                    Interface.CallHook("OnItemDeployed", temporaryLockItem.GetHeldEntity(), car);
+                    temporaryLockItem.RemoveFromContainer();
+                }
+                temporaryLockItem.Remove();
+                player.inventory.containerMain.capacity--;
+            }
+
+            return true;
         }
 
-        private bool MaybeAutoKeyLockCarForPlayer(ModularCar car, BasePlayer player)
+        private bool ShouldTryAddKeyLockForPlayer(IPlayer player) =>
+            player.HasPermission(PermissionAutoKeyLock) && GetPlayerConfig(player).Settings.AutoKeyLock;
+
+        private bool TryAddKeyLockCarForPlayer(ModularCar car, BasePlayer player)
         {
-            if (permission.UserHasPermission(player.UserIDString, PermissionAutoKeyLock) && 
-                GetPlayerConfig(player.UserIDString).Settings.AutoKeyLock &&
-                !car.carLock.HasALock &&
-                car.carLock.CanHaveALock())
-            {
-                car.carLock.AddALock();
-                car.carLock.TryCraftAKey(player, free: true);
-                return true;
-            }
-            return false;
+            if (car.carLock.HasALock || !car.carLock.CanHaveALock()) return false;
+            car.carLock.AddALock();
+            car.carLock.TryCraftAKey(player, free: true);
+            return true;
         }
 
         private void MaybeRemoveMatchingKeysFromPlayer(BasePlayer player, ModularCar car)
@@ -1349,33 +1360,32 @@ namespace Oxide.Plugins
             }
         }
 
-        private void MaybeFillTankerModules(ModularCar car, string userID)
+        private bool ShouldTryFillTankersForPlayer(IPlayer player) =>
+            player.HasPermission(PermissionAutoFillTankers) && GetPlayerConfig(player).Settings.AutoFillTankers;
+
+        private void TryFillTankerModules(ModularCar car)
         {
-            if (permission.UserHasPermission(userID, PermissionAutoFillTankers)
-                && GetPlayerConfig(userID).Settings.AutoFillTankers)
+            foreach (var module in car.AttachedModuleEntities)
             {
-                foreach (var module in car.AttachedModuleEntities)
+                if (module is VehicleModuleStorage)
                 {
-                    if (module is VehicleModuleStorage)
+                    var container = (module as VehicleModuleStorage).GetContainer();
+                    if (container is LiquidContainer)
                     {
-                        var container = (module as VehicleModuleStorage).GetContainer();
-                        if (container is LiquidContainer)
+                        var liquidContainer = (container as LiquidContainer);
+
+                        // Remove existing liquid such as salt water
+                        var liquidItem = liquidContainer.GetLiquidItem();
+                        if (liquidItem != null)
                         {
-                            var liquidContainer = (container as LiquidContainer);
-
-                            // Remove existing liquid such as salt water
-                            var liquidItem = liquidContainer.GetLiquidItem();
-                            if (liquidItem != null)
-                            {
-                                liquidItem.RemoveFromContainer();
-                                liquidItem.Remove();
-                            }
-
-                            liquidContainer.inventory.AddItem(liquidContainer.defaultLiquid, liquidContainer.maxStackSize);
-
-                            if (pluginConfig.EnableEffects)
-                                Effect.server.Run(TankerFilledEffectPrefab, module.transform.position);
+                            liquidItem.RemoveFromContainer();
+                            liquidItem.Remove();
                         }
+
+                        liquidContainer.inventory.AddItem(liquidContainer.defaultLiquid, liquidContainer.maxStackSize);
+
+                        if (pluginConfig.EnableEffects)
+                            Effect.server.Run(TankerFilledEffectPrefab, module.transform.position);
                     }
                 }
             }
