@@ -394,7 +394,7 @@ namespace Oxide.Plugins
 
                 var presetName = args[0];
 
-                CarPreset preset;
+                PlayerCarPreset preset;
                 if (!VerifyOnlyOneMatchingPreset(player, presetName, out preset)) return;
 
                 SpawnPresetCarForPlayer(player, preset);
@@ -538,7 +538,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            config.SavePreset(CarPreset.FromCar(car, presetName));
+            config.SavePreset(PlayerCarPreset.FromCar(car, presetName));
             ReplyToPlayer(player, "Command.SavePreset.Success", presetName);    
         }
 
@@ -559,7 +559,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            config.UpdatePreset(CarPreset.FromCar(car, preset.Name));
+            config.UpdatePreset(PlayerCarPreset.FromCar(car, preset.Name));
             ReplyToPlayer(player, "Command.UpdatePreset.Success", preset.Name);
         }
 
@@ -575,7 +575,7 @@ namespace Oxide.Plugins
 
             var presetNameArg = args.Length == 0 ? DefaultPresetName : args[0];
 
-            CarPreset preset;
+            PlayerCarPreset preset;
             if (!VerifyOnlyOneMatchingPreset(player, presetNameArg, out preset)) return;
 
             var presetNumSockets = preset.NumSockets;
@@ -648,14 +648,14 @@ namespace Oxide.Plugins
             var oldName = args[0];
             var newName = args[1];
 
-            CarPreset preset;
+            PlayerCarPreset preset;
             if (!VerifyHasPreset(player, oldName, out preset)) return;
 
             // Cache actual old preset name since matching is case-insensitive
             var actualOldPresetName = preset.Name;
 
             var config = GetPlayerConfig(player);
-            CarPreset existingPresetWithNewName = config.FindPreset(newName);
+            PlayerCarPreset existingPresetWithNewName = config.FindPreset(newName);
 
             if (newName.Length > PresetMaxLength)
             {
@@ -680,7 +680,7 @@ namespace Oxide.Plugins
 
             var presetName = args.Length == 0 ? DefaultPresetName : args[0];
 
-            CarPreset preset;
+            PlayerCarPreset preset;
             if (!VerifyHasPreset(player, presetName, out preset)) return;
 
             GetPlayerConfig(player).DeletePreset(preset);
@@ -744,7 +744,7 @@ namespace Oxide.Plugins
             return true;
         }
 
-        private bool VerifyHasPreset(IPlayer player, string presetName, out CarPreset preset)
+        private bool VerifyHasPreset(IPlayer player, string presetName, out PlayerCarPreset preset)
         {
             preset = GetPlayerConfig(player).FindPreset(presetName);
             if (preset == null)
@@ -798,7 +798,7 @@ namespace Oxide.Plugins
             return true;
         }
 
-        private bool VerifyOnlyOneMatchingPreset(IPlayer player, string presetName, out CarPreset preset)
+        private bool VerifyOnlyOneMatchingPreset(IPlayer player, string presetName, out PlayerCarPreset preset)
         {
             var config = GetPlayerConfig(player.Id);
             preset = config.FindPreset(presetName);
@@ -829,7 +829,7 @@ namespace Oxide.Plugins
         private bool IsPlayerCar(ModularCar car) =>
             pluginData.playerCars.ContainsValue(car.net.ID);
 
-        private int SortPresetNames(CarPreset a, CarPreset b) =>
+        private int SortPresetNames(PlayerCarPreset a, PlayerCarPreset b) =>
             a.Name.ToLower() == DefaultPresetName ? -1 :
             b.Name.ToLower() == DefaultPresetName ? 1 :
             a.Name.CompareTo(b.Name);
@@ -917,7 +917,7 @@ namespace Oxide.Plugins
             });
         }
 
-        private void SpawnPresetCarForPlayer(IPlayer player, CarPreset preset)
+        private void SpawnPresetCarForPlayer(IPlayer player, PlayerCarPreset preset)
         {
             if (preset.NumSockets > GetPlayerMaxAllowedCarSockets(player.Id))
             {
@@ -939,7 +939,7 @@ namespace Oxide.Plugins
             });
         }
 
-        private void SpawnCarForPlayer(BasePlayer player, int desiredSockets, CarPreset preset = null, Action<ModularCar> onReady = null)
+        private void SpawnCarForPlayer(BasePlayer player, int desiredSockets, PlayerCarPreset preset = null, Action<ModularCar> onReady = null)
         {
             string prefabName;
             if (desiredSockets == 4) prefabName = PrefabSockets4;
@@ -1597,11 +1597,11 @@ namespace Oxide.Plugins
             Config.WriteObject(GetDefaultConfig(), true);
         }
 
-        internal class CarPreset
+        internal class PlayerCarPreset
         {
-            public static CarPreset FromCar(ModularCar car, string presetName)
+            public static PlayerCarPreset FromCar(ModularCar car, string presetName)
             {
-                return new CarPreset
+                return new PlayerCarPreset
                 {
                     Name = presetName,
                     ModuleIDs = pluginInstance.GetCarModuleIDs(car)
@@ -1648,8 +1648,8 @@ namespace Oxide.Plugins
                 return config;
             }
 
-            public static Func<CarPreset, bool> MatchPresetName(string presetName) =>
-                new Func<CarPreset, bool>(preset => preset.Name.Equals(presetName, StringComparison.CurrentCultureIgnoreCase));
+            public static Func<PlayerCarPreset, bool> MatchPresetName(string presetName) =>
+                new Func<PlayerCarPreset, bool>(preset => preset.Name.Equals(presetName, StringComparison.CurrentCultureIgnoreCase));
 
             private string Filepath;
 
@@ -1660,38 +1660,38 @@ namespace Oxide.Plugins
             public PlayerSettings Settings = new PlayerSettings();
 
             [JsonProperty("Presets")]
-            public List<CarPreset> Presets = new List<CarPreset>();
+            public List<PlayerCarPreset> Presets = new List<PlayerCarPreset>();
 
-            public CarPreset FindPreset(string presetName) => 
+            public PlayerCarPreset FindPreset(string presetName) => 
                 Presets.FirstOrDefault(MatchPresetName(presetName));
 
-            public List<CarPreset> FindMatchingPresets(string presetName) =>
+            public List<PlayerCarPreset> FindMatchingPresets(string presetName) =>
                 Presets.Where(preset => preset.Name.IndexOf(presetName, StringComparison.CurrentCultureIgnoreCase) >= 0).ToList();
 
             public bool HasPreset(string presetName) => 
                 Presets.Any(MatchPresetName(presetName));
 
-            public void SavePreset(CarPreset newPreset)
+            public void SavePreset(PlayerCarPreset newPreset)
             {
                 Presets.Add(newPreset);
                 SaveData();
             }
 
-            public void UpdatePreset(CarPreset newPreset)
+            public void UpdatePreset(PlayerCarPreset newPreset)
             {
-                var presetIndex = Presets.FindIndex(new Predicate<CarPreset>(MatchPresetName(newPreset.Name)));
+                var presetIndex = Presets.FindIndex(new Predicate<PlayerCarPreset>(MatchPresetName(newPreset.Name)));
                 if (presetIndex == -1) return;
                 Presets[presetIndex] = newPreset;
                 SaveData();
             }
 
-            public void RenamePreset(CarPreset preset, string newName)
+            public void RenamePreset(PlayerCarPreset preset, string newName)
             {
                 preset.Name = newName;
                 SaveData();
             }
 
-            public void DeletePreset(CarPreset preset)
+            public void DeletePreset(PlayerCarPreset preset)
             {
                 Presets.Remove(preset);
                 SaveData();
