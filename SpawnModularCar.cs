@@ -12,7 +12,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.7.1")]
+    [Info("Spawn Modular Car", "WhiteThunder", "2.0.0")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -37,6 +37,7 @@ namespace Oxide.Plugins
         private const string PermissionFix = "spawnmodularcar.fix";
         private const string PermissionFetch = "spawnmodularcar.fetch";
         private const string PermissionDespawn = "spawnmodularcar.despawn";
+        private const string PermissionAutoFuel = "spawnmodularcar.autofuel";
         private const string PermissionAutoCodeLock = "spawnmodularcar.autocodelock";
         private const string PermissionAutoKeyLock = "spawnmodularcar.autokeylock";
         private const string PermissionDriveUnderwater = "spawnmodularcar.underwater";
@@ -89,6 +90,7 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermissionFix, this);
             permission.RegisterPermission(PermissionFetch, this);
             permission.RegisterPermission(PermissionDespawn, this);
+            permission.RegisterPermission(PermissionAutoFuel, this);
             permission.RegisterPermission(PermissionAutoCodeLock, this);
             permission.RegisterPermission(PermissionAutoKeyLock, this);
             permission.RegisterPermission(PermissionDriveUnderwater, this);
@@ -421,7 +423,7 @@ namespace Oxide.Plugins
             if (!VerifyCarIsNotDead(player, car)) return;
             if (!VerifyOffCooldown(FixCarCooldowns, player)) return;
 
-            FixCar(car, GetPlayerEnginePartsTier(player.Id));
+            FixCar(car, GetPlayerAllowedFuel(player.Id), GetPlayerEnginePartsTier(player.Id));
             MaybeFillTankerModules(car, player.Id);
             FixCarCooldowns.UpdateLastUsedForPlayer(player.Id);
 
@@ -609,7 +611,7 @@ namespace Oxide.Plugins
                     }
                 }
 
-                FixCar(car, enginePartsTier);
+                FixCar(car, GetPlayerAllowedFuel(player.Id), enginePartsTier);
 
                 // Restart the engine if it turned off during the brief moment it had no engine or no parts
                 if (wasEngineOn && !car.IsOn() && car.CanRunEngines()) car.FinishStartingEngine();
@@ -874,6 +876,9 @@ namespace Oxide.Plugins
         private Quaternion GetIdealCarRotation(BasePlayer player) =>
             Quaternion.Euler(0, player.GetNetworkRotation().eulerAngles.y - 90, 0);
 
+        private int GetPlayerAllowedFuel(string userID) =>
+            permission.UserHasPermission(userID, PermissionAutoFuel) ? pluginConfig.FuelAmount : 0;
+
         private int GetPlayerEnginePartsTier(string userID)
         {
             if (permission.UserHasPermission(userID, PermissionEnginePartsTier3))
@@ -962,7 +967,7 @@ namespace Oxide.Plugins
 
             NextTick(() =>
             {
-                FixCar(car, GetPlayerEnginePartsTier(player.UserIDString));
+                FixCar(car, GetPlayerAllowedFuel(player.UserIDString), GetPlayerEnginePartsTier(player.UserIDString));
                 MaybeFillTankerModules(car, player.UserIDString);
                 MaybeAutoCodeLockForPlayer(car, player);
                 MaybeAutoKeyLockCarForPlayer(car, player);
@@ -1200,11 +1205,11 @@ namespace Oxide.Plugins
             };
         }
 
-        private void FixCar(ModularCar car, int enginePartsTier)
+        private void FixCar(ModularCar car, int fuelAmount, int enginePartsTier)
         {
             car.SetHealth(car.MaxHealth());
             car.SendNetworkUpdate();
-            car.fuelSystem.AdminFillFuel();
+            AddOrRestoreFuel(car, fuelAmount);
 
             foreach (var module in car.AttachedModuleEntities)
             {
@@ -1218,6 +1223,24 @@ namespace Oxide.Plugins
                     AddUpgradeOrRepairEngineParts(engineStorage, enginePartsTier);
                     engineModule.RefreshPerformanceStats(engineStorage);
                 }
+            }
+        }
+
+        private void AddOrRestoreFuel(ModularCar car, int specifiedFuelAmount)
+        {
+            var fuelContainer = car.fuelSystem.GetFuelContainer();
+            var targetFuelAmount = specifiedFuelAmount == -1 ? fuelContainer.allowedItem.stackable : specifiedFuelAmount;
+            if (targetFuelAmount == 0) return;
+
+            var fuelItem = fuelContainer.inventory.FindItemByItemID(fuelContainer.allowedItem.itemid);
+            if (fuelItem == null)
+            {
+                fuelContainer.inventory.AddItem(fuelContainer.allowedItem, targetFuelAmount);
+            }
+            else if (fuelItem.amount < targetFuelAmount)
+            {
+                fuelItem.amount = targetFuelAmount;
+                fuelItem.MarkDirty();
             }
         }
 
@@ -1578,6 +1601,9 @@ namespace Oxide.Plugins
 
             [JsonProperty("EnableEffects")]
             public bool EnableEffects = true;
+
+            [JsonProperty("FuelAmount")]
+            public int FuelAmount = -1;
 
             [JsonProperty("MaxPresetsPerPlayer")]
             public int MaxPresetsPerPlayer = 10;

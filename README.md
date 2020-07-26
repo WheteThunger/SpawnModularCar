@@ -7,7 +7,8 @@
 - `mycar <2|3|4>` -- Spawn a random modular car with the specified number of sockets.
 - `mycar <name>` -- Spawn a modular car from the specified preset. Partial name matching supported. See presets section for more details.
 
-When a modular car is spawned, it will be at full health and contain maximum fuel. Additionally, depending on your granted permissions and personal settings:
+When a modular car is spawned, it will be at full health. Additionally, depending on your granted permissions and personal settings:
+- It may be fueled.
 - It may automatically have a code lock.
 - It may automatically have a key lock, with a matching key added to your inventory.
 - All tanker modules may be automatically filled with fresh water.
@@ -57,6 +58,7 @@ Misc:
 - `spawnmodularcar.fix` -- Required to use `mycar fix`.
 - `spawnmodularcar.fetch` -- Required to use `mycar fetch`.
 - `spawnmodularcar.despawn` -- Required to use `mycar destroy`.
+- `spawnmodularcar.autofuel` -- Fuels your car automatically.
 - `spawnmodularcar.autocodelock` -- Required to use the automatic code lock feature (i.e., `mycar autocodelock`).
 - `spawnmodularcar.autokeylock` -- Required to use the automatic key lock feature (i.e., `mycar autokeylock`).
 - `spawnmodularcar.autofilltankers` - Required to use automatic filling of tanker modules (i.e. `mycar autofilltankers`).
@@ -83,6 +85,7 @@ Misc:
   "DisableSpawnLimitEnforcement": false,
   "DismountPlayersOnFetch": true,
   "EnableEffects": true,
+  "FuelAmount": -1,
   "MaxPresetsPerPlayer": 10,
   "PreventEditingWhileCodeLockedOut": false
 }
@@ -97,8 +100,9 @@ Misc:
 - `DisableSpawnLimitEnforcement` (`true` or `false`) -- Set to `true` to keep all modular cars between server restarts. Otherwise, the game will delete extra cars beyond the server's configured modular car population, which *may* delete player cars depending on how recently they were spawned.
 - `DismountPlayersOnFetch` (`true` or `false`) -- Whether to dismount all players from a car when it is fetched. Has no effect unless `CanFetchWhileOccupied` is also `true`.
 - `EnableEffects` (`true` or `false`) -- Enable audio and visual effects when spawning a car from a preset, using `mycar fix` or `mycar load`.
-- `MaxPresetsPerPlayer` (`true` or `false`) -- The maximum number of module configuration presets each player is allowed to save.
-- `PreventEditingWhileCodeLockedOut` -- Whether to prevent players from editing the vehicle on a lift when they are not authorized to the car's code lock. Authorized players can still edit the vehicle regardless.
+- `FuelAmount` -- The amount of low grade fuel to add to the fuel tank when spawning. Only applies if the player has the `spawnmodularcar.autofuel` permission. When fixing the car or loading a preset, only the amount missing will be added to reach this minimum target value. Defaults to `-1` which represents maximum stack size.
+- `MaxPresetsPerPlayer` -- The maximum number of module configuration presets each player is allowed to save.
+- `PreventEditingWhileCodeLockedOut` (`true` or `false`) -- Whether to prevent players from editing the vehicle on a lift when they are not authorized to the car's code lock. Authorized players can still edit the vehicle regardless.
 
 ## Localization
 
