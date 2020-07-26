@@ -853,7 +853,7 @@ namespace Oxide.Plugins
             return car;
         }
 
-        private List<int> GetCarModuleIDs(ModularCar car)
+        private int[] GetCarModuleIDs(ModularCar car)
         {
             var moduleIDs = new List<int>();
 
@@ -867,7 +867,7 @@ namespace Oxide.Plugins
                     moduleIDs.Add(0);
             }
 
-            return moduleIDs;
+            return moduleIDs.ToArray();
         }
 
         private Vector3 GetIdealCarPosition(BasePlayer player)
@@ -1021,7 +1021,7 @@ namespace Oxide.Plugins
             car.waterSample.transform.SetPositionAndRotation(Vector3.up * 1000, new Quaternion());
         }
 
-        private void UpdateCarModules(ModularCar car, List<int> moduleIDs)
+        private void UpdateCarModules(ModularCar car, int[] moduleIDs)
         {
             // Phase 1: Remove all modules that don't match the desired preset
             // This is done first since some modules take up two sockets
@@ -1200,7 +1200,7 @@ namespace Oxide.Plugins
             container.Spawn();
         }
 
-        private SpawnSettings MakeSpawnSettings(List<int> moduleIDs)
+        private SpawnSettings MakeSpawnSettings(int[] moduleIDs)
         {
             var presetConfig = ScriptableObject.CreateInstance<ModularCarPresetConfig>();
             presetConfig.socketItemDefs = moduleIDs.Select(id =>
@@ -1619,15 +1619,15 @@ namespace Oxide.Plugins
             }
 
             [JsonProperty("Name")]
-            public string Name { get; set; }
+            public string Name;
 
             [JsonProperty("ModuleIDs")]
-            public List<int> ModuleIDs { get; set; }
+            public int[] ModuleIDs;
 
             [JsonIgnore]
             public int NumSockets
             {
-                get { return ModuleIDs.Count; }
+                get { return ModuleIDs.Length; }
             }
         }
 
