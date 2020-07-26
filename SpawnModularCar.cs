@@ -12,7 +12,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "1.7.0")]
+    [Info("Spawn Modular Car", "WhiteThunder", "1.7.1")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -1317,7 +1317,7 @@ namespace Oxide.Plugins
 
                 if (itemDisplaced != null)
                     if (!itemDisplaced.MoveToContainer(player.inventory.containerMain, 0))
-                        codeLockItem.DropAndTossUpwards(player.GetDropPosition());
+                        itemDisplaced.DropAndTossUpwards(player.GetDropPosition());
             }
             else
             {
