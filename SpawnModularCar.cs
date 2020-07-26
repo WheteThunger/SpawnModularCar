@@ -12,7 +12,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "2.0.0")]
+    [Info("Spawn Modular Car", "WhiteThunder", "2.0.1")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -56,7 +56,8 @@ namespace Oxide.Plugins
 
         private const string RepairEffectPrefab = "assets/bundled/prefabs/fx/build/promote_toptier.prefab";
         private const string TankerFilledEffectPrefab = "assets/prefabs/food/water jug/effects/water-jug-fill-container.prefab";
-        
+        private const string CodeLockDeployedEffectPrefab = "assets/prefabs/locks/keypad/effects/lock-code-deploy.prefab";
+
         private readonly Vector3 CodeLockPosition = new Vector3(-0.9f, 0.35f, -0.5f);
 
         private const int CodeLockItemId = 1159991980;
@@ -1290,64 +1291,35 @@ namespace Oxide.Plugins
                 var driverModule = FindFirstDriverModule(car);
                 if (driverModule == null) return;
 
-                var codeLock = GameManager.server.CreateEntity(CodeLockPrefab) as CodeLock;
+                var codeLock = GameManager.server.CreateEntity(CodeLockPrefab, CodeLockPosition, Quaternion.identity) as CodeLock;
+                if (codeLock == null) return;
+
                 codeLock.OwnerID = player.userID;
-                codeLock.Spawn();
-                codeLock.transform.SetPositionAndRotation(CodeLockPosition, Quaternion.identity);
                 codeLock.SetParent(driverModule);
+                codeLock.Spawn();
                 car.SetSlot(BaseEntity.Slot.Lock, codeLock);
 
-                // Support for other plugins
-                CallOnItemDeployedHook(car, player);
-            }
-        }
+                Effect.server.Run(CodeLockDeployedEffectPrefab, codeLock.transform.position);
 
-        private void CallOnItemDeployedHook(ModularCar car, BasePlayer player)
-        {
-            // Try to use a lock from the player's inventory
-            var codeLockItem = player.inventory.FindItemID(CodeLockItemId);
-            bool wasItemGiven = false;
-            Item itemDisplaced = null;
-
-            if (codeLockItem == null)
-            {
-                codeLockItem = ItemManager.CreateByItemID(CodeLockItemId);
-
-                // Ty to give a lock to the player since they don't have one
-                if (player.inventory.GiveItem(codeLockItem))
-                    wasItemGiven = true;
+                // Allow other plugins to detect the lock being deployed (e.g., auto lock)
+                var codeLockItem = player.inventory.FindItemID(CodeLockItemId);
+                if (codeLockItem != null)
+                {
+                    Interface.CallHook("OnItemDeployed", codeLockItem.GetHeldEntity(), car);
+                }
                 else
                 {
-                    var inventory = player.inventory.containerMain;
-                    if (inventory.capacity > 0)
+                    // Temporarily increase the player inventory capacity to ensure there is enough space
+                    player.inventory.containerMain.capacity++;
+                    var temporaryLockItem = ItemManager.CreateByItemID(CodeLockItemId);
+                    if (player.inventory.GiveItem(temporaryLockItem))
                     {
-                        // Temporarily displace an item since the player inventory is full
-                        itemDisplaced = inventory.GetSlot(0);
-                        itemDisplaced.RemoveFromContainer();
-
-                        if (codeLockItem.MoveToContainer(inventory, 0))
-                            wasItemGiven = true;
+                        Interface.CallHook("OnItemDeployed", temporaryLockItem.GetHeldEntity(), car);
+                        temporaryLockItem.RemoveFromContainer();
                     }
+                    temporaryLockItem.Remove();
+                    player.inventory.containerMain.capacity--;
                 }
-            }
-
-            Interface.CallHook("OnItemDeployed", codeLockItem.GetHeldEntity(), car);
-
-            if (wasItemGiven)
-            {
-                codeLockItem.RemoveFromContainer();
-                codeLockItem.Remove();
-
-                if (itemDisplaced != null)
-                    if (!itemDisplaced.MoveToContainer(player.inventory.containerMain, 0))
-                        itemDisplaced.DropAndTossUpwards(player.GetDropPosition());
-            }
-            else
-            {
-                codeLockItem.amount--;
-                codeLockItem.MarkDirty();
-                if (codeLockItem.amount <= 0)
-                    codeLockItem.Remove();
             }
         }
 
