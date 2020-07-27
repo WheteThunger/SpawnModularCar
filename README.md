@@ -5,7 +5,8 @@
 ### Spawn commands
 - `mycar` -- Spawn a modular car using your "default" preset if saved, else spawn a random car with the maximum number of allowed sockets based on your permissions.
 - `mycar <2|3|4>` -- Spawn a random modular car with the specified number of sockets.
-- `mycar <name>` -- Spawn a modular car from the specified preset. Partial name matching supported. See presets section for more details.
+- `mycar <name>` -- Spawn a modular car from the specified player-defined preset. Partial name matching supported. See the player-defined preset commands section for more details.
+- `givecar <player> <preset>` -- Spawn a car for the target player using the specified server-wide preset. See the server presets configuration section for details.
 
 When a modular car is spawned, it will be at full health. Additionally, depending on your granted permissions and personal settings:
 - It may be fueled (amount is configurable).
@@ -25,7 +26,7 @@ When a modular car is spawned, it will be at full health. Additionally, dependin
 - `mycar autofilltankers` -- Toggle AutoFillTankers. While ON, spawning your car, fixing it, or loading a preset will automatically fill any tanker modules to allowed capacity (configurable) with fresh water, replacing any salt water already in them.
 - `mycar help` -- Print a list of available commands and their usage. Only shows commands allowed by your permissions.
 
-### Preset-related commands
+### Player-defined preset commands
 
 Players can save custom module configurations, allowing them to spawn a car or update a car in-place with a saved preset.
 
@@ -66,8 +67,9 @@ Misc:
 - `spawnmodularcar.autostartengine` -- Instantly start your car's engine when you get in.
 - `spawnmodularcar.presets` -- Allows you to spawn your car from a preset. Also enables the `save`, `update`, `rename` and `delete` preset commands.
 - `spawnmodularcar.presets.load` -- Required to use `mycar load`.
+- `spawnmodularcar.givecar` -- Required to use the `givecar` command.
 
-# Configuration
+## Configuration
 
 ```json
 {
@@ -88,6 +90,7 @@ Misc:
   "FreshWaterAmount": -1,
   "FuelAmount": -1,
   "MaxPresetsPerPlayer": 10,
+  "Presets": [],
   "PreventEditingWhileCodeLockedOut": false
 }
 ```
@@ -105,6 +108,57 @@ Misc:
 - `FuelAmount` -- The amount of low grade fuel to add to the fuel tank when spawning. Only applies if the player has the `spawnmodularcar.autofuel` permission. When fixing the car or loading a preset, only the amount missing will be added to reach this minimum target value. Defaults to `-1` which represents maximum stack size.
 - `MaxPresetsPerPlayer` -- The maximum number of module configuration presets each player is allowed to save.
 - `PreventEditingWhileCodeLockedOut` (`true` or `false`) -- Whether to prevent players from editing the vehicle on a lift when they are not authorized to the car's code lock. Authorized players can still edit the vehicle regardless.
+
+### Server presets
+
+Server presets must be manually defined in the plugin's configuration file. A car can be spawned for a player using a server preset with the `givecar <player> <preset>` command. Cars spawned this way will use the settings that are provided in the preset, instead of using the general plugin configuration, player permissions and player settings. These cars do not count towards the player limit of one car, nor can they be spawned or interacted with using `mycar`.
+
+Here is an example list of presets to get you started.
+
+```json
+"Presets": [
+  {
+    "Name": "LongChassis",
+    "Options": {
+      "ModuleIDs": [0, 0, 0, 0]
+    }
+  },
+  {
+    "Name": "TourBus",
+    "Options": {
+      "ModuleIDs": [170758448, 895374329, 1376065505],
+      "EnginePartsTier": 2,
+      "FuelAmount": 100,
+      "CodeLock": true
+    }
+  },
+  {
+    "Name": "ArmoredCar",
+    "Options": {
+      "ModuleIDs": [1559779253, 1874610722, 1874610722],
+      "EnginePartsTier": 3,
+      "FuelAmount": 500,
+      "KeyLock": true
+    }
+  },
+  {
+    "Name": "DoubleTanker",
+    "Options": {
+      "ModuleIDs": [1186655046, 1186655046],
+      "FreshWaterAmount": 50000
+    }
+  }
+],
+```
+
+Here are all of the available options you can define per preset. Most default to `0` or `false`.
+
+- `ModuleIDs` -- List of module item ids that will be added to the car automatically. These ids can be found on item pages at [rustlabs.com](https://rustlabs.com/search=module). The number `0` represents an empty socket.
+- `CodeLock` (`true` or `false`) -- Whether to deploy a code lock to the car.
+- `KeyLock` (`true` or `false`) -- Whether to create a key lock on the car and add a matching key to the player's inventory.
+- `EnginePartsTier` (`0` - `3`) -- The quality of engine components to automatically add to all engine modules. Choosing `0` will not add any engine components.
+- `FuelAmount` -- The amount of fuel to put in the fuel tank.
+- `FreshWaterAmount` -- The amount of fresh water to add to each tanker module if applicable.
 
 ## Localization
 
@@ -151,6 +205,11 @@ Misc:
   "Command.ToggleAutoCodeLock.Success": "<color=yellow>AutoCodeLock</color> set to {0}",
   "Command.ToggleAutoKeyLock.Success": "<color=yellow>AutoKeyLock</color> set to {0}",
   "Command.ToggleAutoFillTankers.Success": "<color=yellow>AutoFillTankers</color> set to {0}",
+  "Command.Give.Error.Syntax": "Syntax: <color=yellow>givecar <player> <preset></color>",
+  "Command.Give.Error.PlayerNotFound": "Error: Player <color=yellow>{0}</color> not found.",
+  "Command.Give.Error.PresetTooFewModules": "Error: Preset <color=yellow>{0}</color> has too few modules ({1}).",
+  "Command.Give.Error.PresetTooManyModules": "Error: Preset <color=yellow>{0}</color> has too many modules ({1}).",
+  "Command.Give.Success": "Modular car given to <color=yellow>{0}</color> from preset <color=yellow>{1}</color>.",
   "Command.Help": "<color=orange>SpawnModularCar Command Usages</color>",
   "Command.Help.Spawn.Basic": "<color=yellow>mycar</color> - Spawn a random car with max allowed sockets",
   "Command.Help.Spawn.Basic.PresetsAllowed": "<color=yellow>mycar</color> - Spawn a car using your <color=yellow>default</color> preset if saved, else spawn a random car with max allowed sockets",
@@ -167,6 +226,7 @@ Misc:
   "Command.Help.DeletePreset": "<color=yellow>mycar delete <name></color> - Delete a preset",
   "Command.Help.ToggleAutoCodeLock": "<color=yellow>mycar autocodelock</color> - Toggle AutoCodeLock: {0}",
   "Command.Help.ToggleAutoKeyLock": "<color=yellow>mycar autokeylock</color> - Toggle AutoKeyLock: {0}",
-  "Command.Help.ToggleAutoFillTankers": "<color=yellow>mycar autofilltankers</color> - Toggle automatic filling of tankers with fresh water: {0}"
+  "Command.Help.ToggleAutoFillTankers": "<color=yellow>mycar autofilltankers</color> - Toggle automatic filling of tankers with fresh water: {0}",
+  "Command.Help.Give": "<color=yellow>givecar <player> <preset></color> - Spawn a car for the target player from the specified server preset"
 }
 ```

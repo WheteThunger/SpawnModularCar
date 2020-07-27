@@ -8,11 +8,10 @@ using Rust.Modular;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "2.1.1")]
+    [Info("Spawn Modular Car", "WhiteThunder", "2.2.0")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -43,6 +42,7 @@ namespace Oxide.Plugins
         private const string PermissionDriveUnderwater = "spawnmodularcar.underwater";
         private const string PermissionAutoStartEngine = "spawnmodularcar.autostartengine";
         private const string PermissionAutoFillTankers = "spawnmodularcar.autofilltankers";
+        private const string PermissionGiveCar = "spawnmodularcar.givecar";
 
         private const string PermissionPresets = "spawnmodularcar.presets";
         private const string PermissionPresetLoad = "spawnmodularcar.presets.load";
@@ -97,6 +97,7 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermissionDriveUnderwater, this);
             permission.RegisterPermission(PermissionAutoStartEngine, this);
             permission.RegisterPermission(PermissionAutoFillTankers, this);
+            permission.RegisterPermission(PermissionGiveCar, this);
 
             permission.RegisterPermission(PermissionPresets, this);
             permission.RegisterPermission(PermissionPresetLoad, this);
@@ -216,6 +217,53 @@ namespace Oxide.Plugins
         #endregion
 
         #region Commands
+
+        [Command("givecar")]
+        private void SpawnCarServerCommand(IPlayer player, string cmd, string[] args)
+        {
+            if (!player.IsServer && !VerifyPermissionAny(player, PermissionGiveCar)) return;
+
+            if (args.Length < 2)
+            {
+                ReplyToPlayer(player, "Command.Give.Error.Syntax");
+                return;
+            }
+
+            var playerNameOrIdArg = args[0];
+            var presetNameArg = args[1];
+
+            var targetPlayer = BasePlayer.Find(playerNameOrIdArg);
+            if (targetPlayer == null)
+            {
+                ReplyToPlayer(player, "Command.Give.Error.PlayerNotFound", playerNameOrIdArg);
+                return;
+            }
+
+            foreach (var preset in pluginConfig.Presets)
+            {
+                if (preset.Name.ToLower() == presetNameArg.ToLower())
+                {
+                    var carOptions = preset.Options;
+                    if (carOptions.Length < 2)
+                    {
+                        ReplyToPlayer(player, "Command.Give.Error.PresetTooFewModules", preset.Name, carOptions.Length);
+                        return;
+                    }
+                    if (carOptions.Length > 4)
+                    {
+                        ReplyToPlayer(player, "Command.Give.Error.PresetTooManyModules", preset.Name, carOptions.Length);
+                        return;
+                    }
+                    SpawnCarForPlayer(targetPlayer, carOptions, shouldTrackCar: false, onReady: car =>
+                    {
+                        ReplyToPlayer(player, "Command.Give.Success", targetPlayer.displayName, preset.Name);
+                    });
+                    return;
+                }
+            }
+
+            ReplyToPlayer(player, "Generic.Error.PresetNotFound", presetNameArg);
+        }
 
         [Command("mycar")]
         private void MyCarCommand(IPlayer player, string cmd, string[] args)
@@ -339,6 +387,9 @@ namespace Oxide.Plugins
 
             if (permission.UserHasPermission(player.Id, PermissionAutoFillTankers))
                 messages.Add(GetMessage(player, "Command.Help.ToggleAutoFillTankers", BooleanToLocalizedString(player, GetPlayerConfig(player).Settings.AutoFillTankers)));
+
+            if (permission.UserHasPermission(player.Id, PermissionGiveCar))
+                messages.Add(GetMessage(player, "Command.Help.Give"));
 
             player.Reply(string.Join("\n", messages));
         }
@@ -909,7 +960,8 @@ namespace Oxide.Plugins
 
         private void SpawnRandomCarForPlayer(IPlayer player, int desiredSockets)
         {
-            SpawnCarForPlayer(player.Object as BasePlayer, desiredSockets, null, shouldTrackCar: true, onReady: car =>
+            var carOptions = new RandomCarOptions(player.Id, desiredSockets);
+            SpawnCarForPlayer(player.Object as BasePlayer, carOptions, shouldTrackCar: true, onReady: car =>
             {
                 var chatMessages = new List<string> { GetMessage(player, "Command.Spawn.Success") };
 
@@ -928,7 +980,8 @@ namespace Oxide.Plugins
                 return;
             }
 
-            SpawnCarForPlayer(player.Object as BasePlayer, preset.NumSockets, preset, shouldTrackCar: true, onReady: car =>
+            var carOptions = new PresetCarOptions(player.Id, preset.ModuleIDs);
+            SpawnCarForPlayer(player.Object as BasePlayer, carOptions, shouldTrackCar: true, onReady: car =>
             {
                 var chatMessages = new List<string> { GetMessage(player, "Command.Spawn.Success.Preset", preset.Name) };
 
@@ -942,12 +995,14 @@ namespace Oxide.Plugins
             });
         }
 
-        private void SpawnCarForPlayer(BasePlayer player, int desiredSockets, PlayerCarPreset preset = null, bool shouldTrackCar = false, Action<ModularCar> onReady = null)
+        private void SpawnCarForPlayer(BasePlayer player, BaseCarOptions options, bool shouldTrackCar = false, Action<ModularCar> onReady = null)
         {
+            var numSockets = options.Length;
+
             string prefabName;
-            if (desiredSockets == 4) prefabName = PrefabSockets4;
-            else if (desiredSockets == 3) prefabName = PrefabSockets3;
-            else if (desiredSockets == 2) prefabName = PrefabSockets2;
+            if (numSockets == 4) prefabName = PrefabSockets4;
+            else if (numSockets == 3) prefabName = PrefabSockets3;
+            else if (numSockets == 2) prefabName = PrefabSockets2;
             else return;
 
             var position = GetIdealCarPosition(player);
@@ -956,14 +1011,15 @@ namespace Oxide.Plugins
             ModularCar car = (ModularCar)GameManager.server.CreateEntity(prefabName, position, GetIdealCarRotation(player));
             if (car == null) return;
 
-            if (preset != null)
+            var presetOptions = options as PresetCarOptions;
+            if (presetOptions != null)
                 car.spawnSettings.useSpawnSettings = false;
 
             car.OwnerID = player.userID;
             car.Spawn();
 
-            if (preset != null)
-                AddInitialModules(car, preset.ModuleIDs);
+            if (presetOptions != null)
+                AddInitialModules(car, presetOptions.ModuleIDs);
 
             if (shouldTrackCar)
             {
@@ -976,14 +1032,11 @@ namespace Oxide.Plugins
 
             NextTick(() =>
             {
-                FixCar(car, GetPlayerAllowedFuel(player.UserIDString), GetPlayerEnginePartsTier(player.UserIDString));
-                MaybeFillTankerModules(car, GetPlayerAllowedFreshWater(player.UserIDString));
+                FixCar(car, options.FuelAmount, options.EnginePartsTier);
+                MaybeFillTankerModules(car, options.FreshWaterAmount);
 
-                if (ShouldTryAddCodeLockForPlayer(player.IPlayer))
-                    TryAddCodeLockForPlayer(car, player);
-
-                if (ShouldTryAddKeyLockForPlayer(player.IPlayer))
-                    TryAddKeyLockCarForPlayer(car, player);
+                if (options.CodeLock) TryAddCodeLockForPlayer(car, player);
+                if (options.KeyLock) TryAddKeyLockForPlayer(car, player);
 
                 onReady?.Invoke(car);
             });
@@ -1291,8 +1344,8 @@ namespace Oxide.Plugins
                         (child as BasePlayer).SetParent(null, worldPositionStays: true);
         }
 
-        private bool ShouldTryAddCodeLockForPlayer(IPlayer player) =>
-            player.HasPermission(PermissionAutoCodeLock) && GetPlayerConfig(player).Settings.AutoCodeLock;
+        private bool ShouldTryAddCodeLockForPlayer(string userID) =>
+            permission.UserHasPermission(userID, PermissionAutoCodeLock) && GetPlayerConfig(userID).Settings.AutoCodeLock;
 
         private bool TryAddCodeLockForPlayer(ModularCar car, BasePlayer player)
         {
@@ -1334,10 +1387,10 @@ namespace Oxide.Plugins
             return true;
         }
 
-        private bool ShouldTryAddKeyLockForPlayer(IPlayer player) =>
-            player.HasPermission(PermissionAutoKeyLock) && GetPlayerConfig(player).Settings.AutoKeyLock;
+        private bool ShouldTryAddKeyLockForPlayer(string userID) =>
+            permission.UserHasPermission(userID, PermissionAutoKeyLock) && GetPlayerConfig(userID).Settings.AutoKeyLock;
 
-        private bool TryAddKeyLockCarForPlayer(ModularCar car, BasePlayer player)
+        private bool TryAddKeyLockForPlayer(ModularCar car, BasePlayer player)
         {
             if (car.carLock.HasALock || !car.carLock.CanHaveALock()) return false;
             car.carLock.AddALock();
@@ -1430,6 +1483,8 @@ namespace Oxide.Plugins
                 }
             }
         }
+
+        private int Clamp(int x, int min, int max) => Math.Min(max, Math.Max(min, x));
 
         #endregion
 
@@ -1524,6 +1579,11 @@ namespace Oxide.Plugins
                 ["Command.ToggleAutoCodeLock.Success"] = "<color=yellow>AutoCodeLock</color> set to {0}",
                 ["Command.ToggleAutoKeyLock.Success"] = "<color=yellow>AutoKeyLock</color> set to {0}",
                 ["Command.ToggleAutoFillTankers.Success"] = "<color=yellow>AutoFillTankers</color> set to {0}",
+                ["Command.Give.Error.Syntax"] = "Syntax: <color=yellow>givecar <player> <preset></color>",
+                ["Command.Give.Error.PlayerNotFound"] = "Error: Player <color=yellow>{0}</color> not found.",
+                ["Command.Give.Error.PresetTooFewModules"] = "Error: Preset <color=yellow>{0}</color> has too few modules ({1}).",
+                ["Command.Give.Error.PresetTooManyModules"] = "Error: Preset <color=yellow>{0}</color> has too many modules ({1}).",
+                ["Command.Give.Success"] = "Modular car given to <color=yellow>{0}</color> from preset <color=yellow>{1}</color>.",
                 ["Command.Help"] = "<color=orange>SpawnModularCar Command Usages</color>",
                 ["Command.Help.Spawn.Basic"] = "<color=yellow>mycar</color> - Spawn a random car with max allowed sockets",
                 ["Command.Help.Spawn.Basic.PresetsAllowed"] = "<color=yellow>mycar</color> - Spawn a car using your <color=yellow>default</color> preset if saved, else spawn a random car with max allowed sockets",
@@ -1541,6 +1601,7 @@ namespace Oxide.Plugins
                 ["Command.Help.ToggleAutoCodeLock"] = "<color=yellow>mycar autocodelock</color> - Toggle AutoCodeLock: {0}",
                 ["Command.Help.ToggleAutoKeyLock"] = "<color=yellow>mycar autokeylock</color> - Toggle AutoKeyLock: {0}",
                 ["Command.Help.ToggleAutoFillTankers"] = "<color=yellow>mycar autofilltankers</color> - Toggle automatic filling of tankers with fresh water: {0}",
+                ["Command.Help.Give"] = "<color=yellow>givecar <player> <preset></color> - Spawn a car for the target player from the specified server preset",
             }, this);
         }
 
@@ -1582,6 +1643,9 @@ namespace Oxide.Plugins
             [JsonProperty("CanDespawnWhileOccupied")]
             public bool CanDespawnOccupied = false;
 
+            [JsonProperty("Presets")]
+            public ServerPreset[] Presets = new ServerPreset[0];
+
             [JsonProperty("Cooldowns")]
             public CooldownConfig Cooldowns = new CooldownConfig();
 
@@ -1610,15 +1674,9 @@ namespace Oxide.Plugins
             public bool PreventEditingWhileCodeLockedOut = false;
         }
 
-        private PluginConfig GetDefaultConfig()
-        {
-            return new PluginConfig();
-        }
+        private PluginConfig GetDefaultConfig() => new PluginConfig();
 
-        protected override void LoadDefaultConfig()
-        {
-            Config.WriteObject(GetDefaultConfig(), true);
-        }
+        protected override void LoadDefaultConfig() => Config.WriteObject(GetDefaultConfig(), true);
 
         internal class PlayerCarPreset
         {
@@ -1641,6 +1699,119 @@ namespace Oxide.Plugins
             public int NumSockets
             {
                 get { return ModuleIDs.Length; }
+            }
+        }
+
+        internal class ServerPreset
+        {
+            [JsonProperty("Name")]
+            public string Name;
+
+            [JsonProperty("Options")]
+            public ServerPresetOptions Options;
+        }
+
+        internal abstract class BaseCarOptions
+        {
+            private int _enginePartsTier = 0;
+
+            [JsonProperty("CodeLock")]
+            public bool CodeLock = false;
+
+            [JsonProperty("EnginePartsTier")]
+            public int EnginePartsTier
+            {
+                get { return _enginePartsTier; }
+                set { _enginePartsTier = pluginInstance.Clamp(value, 0, 3); }
+            }
+
+            [JsonProperty("FreshWaterAmount")]
+            public int FreshWaterAmount = 0;
+
+            [JsonProperty("FuelAmount")]
+            public int FuelAmount = 0;
+
+            [JsonProperty("KeyLock")]
+            public bool KeyLock = false;
+
+            [JsonIgnore]
+            public abstract int Length { get; }
+
+            public BaseCarOptions() { }
+
+            public BaseCarOptions(string userID)
+            {
+                CodeLock = pluginInstance.ShouldTryAddCodeLockForPlayer(userID);
+                KeyLock = pluginInstance.ShouldTryAddKeyLockForPlayer(userID);
+                EnginePartsTier = pluginInstance.GetPlayerEnginePartsTier(userID);
+                FuelAmount = pluginInstance.GetPlayerAllowedFuel(userID);
+                FreshWaterAmount = pluginInstance.GetPlayerAllowedFreshWater(userID);
+            }
+        }
+
+        internal class PresetCarOptions : BaseCarOptions
+        {
+            [JsonProperty("ModuleIDs")]
+            public virtual int[] ModuleIDs { get; set; } = new int[0];
+
+            [JsonIgnore]
+            public override int Length
+            {
+                get { return ModuleIDs.Length; }
+            }
+
+            // Empty constructor needed for deserialization
+            public PresetCarOptions() { }
+
+            public PresetCarOptions(string userID, int[] moduleIDs) : base(userID)
+            {
+                ModuleIDs = moduleIDs;
+            }
+        }
+
+        internal class RandomCarOptions : BaseCarOptions
+        {
+            public int NumSockets;
+
+            public override int Length
+            {
+                get { return NumSockets; }
+            }
+
+            public RandomCarOptions(string userID, int numSockets) : base(userID)
+            {
+                NumSockets = numSockets;
+            }
+        }
+
+        internal class ServerPresetOptions : PresetCarOptions
+        {
+            private int[] _normalizedModuleIDs = new int[0];
+            
+            public override int[] ModuleIDs
+            {
+                get { return _normalizedModuleIDs; }
+                set { _normalizedModuleIDs = NormalizeModuleIDs(value); }
+            }
+
+            private int[] NormalizeModuleIDs(int[] moduleIDs)
+            {
+                var moduleIDList = moduleIDs.ToList();
+
+                for (var i = 0; i < moduleIDList.Count; i++)
+                {
+                    if (moduleIDList[i] != 0)
+                    {
+                        // Add a 0 after each module that takes 2 sockets
+                        // This is more user-friendly than having people add the 0s themselves
+                        var itemDefinition = ItemManager.FindItemDefinition(moduleIDList[i]);
+                        var socketsTaken = itemDefinition.GetComponent<ItemModVehicleModule>()?.SocketsTaken ?? 1;
+                        if (socketsTaken == 2)
+                            moduleIDList.Insert(i + 1, 0);
+                    }
+                }
+
+                return moduleIDList.ToArray();
             }
         }
 
