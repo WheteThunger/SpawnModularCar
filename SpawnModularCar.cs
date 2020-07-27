@@ -12,7 +12,7 @@ using static ModularCar;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "2.1.0")]
+    [Info("Spawn Modular Car", "WhiteThunder", "2.1.1")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -957,10 +957,13 @@ namespace Oxide.Plugins
             if (car == null) return;
 
             if (preset != null)
-                car.spawnSettings = MakeSpawnSettings(preset.ModuleIDs);
+                car.spawnSettings.useSpawnSettings = false;
 
             car.OwnerID = player.userID;
             car.Spawn();
+
+            if (preset != null)
+                AddInitialModules(car, preset.ModuleIDs);
 
             if (shouldTrackCar)
             {
@@ -984,6 +987,22 @@ namespace Oxide.Plugins
 
                 onReady?.Invoke(car);
             });
+        }
+
+        private void AddInitialModules(ModularCar car, int[] ModuleIDs)
+        {
+            for (int socketIndex = 0; socketIndex < car.TotalSockets; socketIndex++)
+            {
+                var desiredItemID = ModuleIDs[socketIndex];
+
+                // We are using 0 to represent an empty socket which we skip
+                if (desiredItemID != 0)
+                {
+                    var moduleItem = ItemManager.CreateByItemID(desiredItemID);
+                    if (moduleItem != null)
+                        car.TryAddModule(moduleItem, socketIndex);
+                }
+            }
         }
 
         private CodeLock GetCarCodeLock(ModularCar car) =>
@@ -1195,25 +1214,6 @@ namespace Oxide.Plugins
             container.ResetRemovalTime();
             container.SetVelocity(player.GetDropVelocity());
             container.Spawn();
-        }
-
-        private SpawnSettings MakeSpawnSettings(int[] moduleIDs)
-        {
-            var presetConfig = ScriptableObject.CreateInstance<ModularCarPresetConfig>();
-            presetConfig.socketItemDefs = moduleIDs.Select(id =>
-            {
-                // We are using 0 to represent an empty socket
-                if (id == 0) return null;
-                return ItemManager.FindItemDefinition(id)?.GetComponent<ItemModVehicleModule>();
-            }).ToArray();
-
-            return new SpawnSettings
-            {
-                useSpawnSettings = true,
-                minStartHealthPercent = 100,
-                maxStartHealthPercent = 100,
-                configurationOptions = new ModularCarPresetConfig[] { presetConfig }
-            };
         }
 
         private void FixCar(ModularCar car, int fuelAmount, int enginePartsTier)
