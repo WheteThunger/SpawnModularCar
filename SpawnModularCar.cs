@@ -1609,25 +1609,9 @@ namespace Oxide.Plugins
 
         #region Configuration
 
-        internal class PluginData
-        {
-            public Dictionary<string, uint> playerCars = new Dictionary<string, uint>();
-        }
+        protected override void LoadDefaultConfig() => Config.WriteObject(GetDefaultConfig(), true);
 
-        internal class CooldownConfig
-        {
-            [JsonProperty("SpawnCarSeconds")]
-            public float SpawnSeconds = 10;
-
-            [JsonProperty("FetchCarSeconds")]
-            public float FetchSeconds = 10;
-
-            [JsonProperty("LoadPresetSeconds")]
-            public float LoadPresetSeconds = 10;
-
-            [JsonProperty("FixCarSeconds")]
-            public float FixSeconds = 60;
-        }
+        private PluginConfig GetDefaultConfig() => new PluginConfig();
 
         internal class PluginConfig
         {
@@ -1672,34 +1656,6 @@ namespace Oxide.Plugins
 
             [JsonProperty("PreventEditingWhileCodeLockedOut")]
             public bool PreventEditingWhileCodeLockedOut = false;
-        }
-
-        private PluginConfig GetDefaultConfig() => new PluginConfig();
-
-        protected override void LoadDefaultConfig() => Config.WriteObject(GetDefaultConfig(), true);
-
-        internal class SimplePreset
-        {
-            public static SimplePreset FromCar(ModularCar car, string presetName)
-            {
-                return new SimplePreset
-                {
-                    Name = presetName,
-                    ModuleIDs = pluginInstance.GetCarModuleIDs(car)
-                };
-            }
-
-            [JsonProperty("Name")]
-            public string Name;
-
-            [JsonProperty("ModuleIDs")]
-            public int[] ModuleIDs;
-
-            [JsonIgnore]
-            public int NumSockets
-            {
-                get { return ModuleIDs.Length; }
-            }
         }
 
         internal class ServerPreset
@@ -1787,7 +1743,7 @@ namespace Oxide.Plugins
         internal class ServerPresetOptions : PresetCarOptions
         {
             private int[] _normalizedModuleIDs = new int[0];
-            
+
             public override int[] ModuleIDs
             {
                 get { return _normalizedModuleIDs; }
@@ -1813,6 +1769,30 @@ namespace Oxide.Plugins
 
                 return moduleIDList.ToArray();
             }
+        }
+
+        internal class CooldownConfig
+        {
+            [JsonProperty("SpawnCarSeconds")]
+            public float SpawnSeconds = 10;
+
+            [JsonProperty("FetchCarSeconds")]
+            public float FetchSeconds = 10;
+
+            [JsonProperty("LoadPresetSeconds")]
+            public float LoadPresetSeconds = 10;
+
+            [JsonProperty("FixCarSeconds")]
+            public float FixSeconds = 60;
+        }
+
+        #endregion
+
+        #region Data Management
+
+        internal class PluginData
+        {
+            public Dictionary<string, uint> playerCars = new Dictionary<string, uint>();
         }
 
         private PlayerConfig GetPlayerConfig(IPlayer player) =>
@@ -1899,6 +1879,30 @@ namespace Oxide.Plugins
             public void SaveData()
             {
                 Interface.Oxide.DataFileSystem.WriteObject(Filepath, this);
+            }
+        }
+
+        internal class SimplePreset
+        {
+            public static SimplePreset FromCar(ModularCar car, string presetName)
+            {
+                return new SimplePreset
+                {
+                    Name = presetName,
+                    ModuleIDs = pluginInstance.GetCarModuleIDs(car)
+                };
+            }
+
+            [JsonProperty("Name")]
+            public string Name;
+
+            [JsonProperty("ModuleIDs")]
+            public int[] ModuleIDs;
+
+            [JsonIgnore]
+            public int NumSockets
+            {
+                get { return ModuleIDs.Length; }
             }
         }
 
