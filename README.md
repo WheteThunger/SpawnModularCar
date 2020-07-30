@@ -5,7 +5,8 @@
 ### Spawn commands
 - `mycar` -- Spawn a modular car using your "default" preset if saved, else spawn a random car with the maximum number of allowed sockets based on your permissions.
 - `mycar <2|3|4>` -- Spawn a random modular car with the specified number of sockets.
-- `mycar <name>` -- Spawn a modular car from the specified player-defined preset. Partial name matching supported. See the player-defined preset commands section for more details.
+- `mycar <name>` -- Spawn a modular car from the specified personal preset. See the personal presets section for more details.
+- `mycar common <name>` -- Spawn a modular car from a common preset managed by privileged adminstrators. See the common presets section for more details.
 - `givecar <player> <preset>` -- Spawn a car for the target player using the specified server-wide preset. See the server presets configuration section for details.
 
 When a modular car is spawned, it will be at full health. Additionally, depending on your granted permissions and personal settings:
@@ -16,19 +17,17 @@ When a modular car is spawned, it will be at full health. Additionally, dependin
 - All engine modules may be automatically filled with your highest allowed quality of engine components.
 
 ### Other commands
+
 - `mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoCodeLock` or `AutoKeyLock` setting. Engine components will also be repaired. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, missing engine components are added, and lower quality components are replaced with the maximum quality you are allowed. Note: This command cannot restore your car if it is "dead" (0 health on every module).
 - `mycar fetch` -- Teleport your car to you in an upright position.
 - `mycar destroy` -- Destroy your car, allowing you to spawn a new one.
   - Non-empty storage modules will drop a bag with their items next to where the car was located.
   - If the car's engine modules contained components that are of higher quality than are allowed by your `spawnmodularcar.engineparts.*` permissions, those will be added to your inventory if there is space, else dropped to the ground in front of you.
-- `mycar autocodelock` -- Toggle AutoCodeLock. While ON, spawning your car will automatically create a code lock and add it to the front-most cockpit module if it has one.
-- `mycar autokeylock` -- Toggle AutoKeyLock. While ON, spawning your car will automatically create a key lock and add a matching key to your inventory. Note: This only happens if the car has at least one cockpit module.
-- `mycar autofilltankers` -- Toggle AutoFillTankers. While ON, spawning your car, fixing it, or loading a preset will automatically fill any tanker modules to allowed capacity (configurable) with fresh water, replacing any salt water already in them.
 - `mycar help` -- Print a list of available commands and their usage. Only shows commands allowed by your permissions.
 
-### Player-defined preset commands
+### Personal presets
 
-Players can save custom module configurations, allowing them to spawn a car or update a car in-place with a saved preset.
+Players with the `spawnmodularcar.presets` permission can save custom module configurations, allowing them to spawn their car or change their car in-place with a saved preset.
 
 - `mycar list` -- List your saved module configuration presets.
 - `mycar save <name>` -- Save your car's current module configuration under the specified preset name.
@@ -43,9 +42,26 @@ Players can save custom module configurations, allowing them to spawn a car or u
 
 Note: The `save`, `update`, `load` and `delete` commands will use the "default" preset if the preset name is not specified.
 
+### Common presets
+
+Players with the `spawnmodularcar.presets.common.manage` permission can optionally save their cars as common presets for the rest of the server to use. Any player with the `spawnmodularcar.presets.common` permission can list common presets and spawn a car from a common preset, as long as the player's `spawnmodularcar.spawn.*` permission allows for the number of sockets in the preset.
+
+- `mycar common list` -- List all common presets that you have permission to spawn, based on your `spawnmodularcar.spawn.*` permission.
+- `mycar common load <name>` -- Load the specified common preset onto your existing car. See the personal preset section for details on how loading works.
+- `mycar common save <name>` -- Save your car's current module configuration under the specified common preset name.
+- `mycar common update <name>` -- Overwrite an existing common preset with your car's current module configuration.
+- `mycar common rename <name> <new name>` -- Rename a common preset.
+- `mycar delete <name>` -- Delete the specified common preset.
+
+### Personal settings
+
+- `mycar autocodelock` -- Toggle AutoCodeLock. While ON, spawning your car will automatically create a code lock and add it to the front-most cockpit module if it has one. Requires `spawnmodularcar.autocodelock` permission.
+- `mycar autokeylock` -- Toggle AutoKeyLock. While ON, spawning your car will automatically create a key lock and add a matching key to your inventory, as long as the car has at least one cockpit module. Requires `spawnmodularcar.autokeylock` permission.
+- `mycar autofilltankers` -- Toggle AutoFillTankers. While ON, spawning your car, fixing it, or loading a preset will automatically fill any tanker modules to allowed capacity (configurable) with fresh water, replacing any salt water already in them. Requires `spawnmodularcar.autofilltankers` permission.
+
 ## Permissions
 
-The following permissions control the maximum number of module sockets the player is allowed to have on their car. If none of these are granted, the player cannot spawn a car.
+The following permissions control the maximum number of module sockets the player is allowed to have on their car. If none of these are granted, the player cannot spawn a car, even from a preset.
 - `spawnmodularcar.spawn.2` -- Allows spawning a car with 2 sockets.
 - `spawnmodularcar.spawn.3` -- Allows spawning a car with 2-3 sockets.
 - `spawnmodularcar.spawn.4` -- Allows spawning a car with 2-4 sockets.
@@ -54,6 +70,13 @@ Granting the following permissions will cause the player's car to automatically 
 - `spawnmodularcar.engineparts.tier1` -- Spawn your car with low quality engine components.
 - `spawnmodularcar.engineparts.tier2` -- Spawn your car with medium quality engine components.
 - `spawnmodularcar.engineparts.tier3` -- Spawn your car with high quality engine components.
+
+Presets:
+- `spawnmodularcar.presets` -- Allows you to spawn your car from a personal preset. Also enables the `save`, `update`, `rename` and `delete` preset commands.
+- `spawnmodularcar.presets.load` -- Required to use `mycar load <preset>` and `mycar common load <preset>`.
+- `spawnmodularcar.presets.common` -- Required to use `mycar common <preset>` and `mycar common load <preset>`.
+- `spawnmodularcar.presets.common.manage` -- Required to manage common presets.
+- `spawnmodularcar.givecar` -- Required to use the `givecar` command.
 
 Misc:
 - `spawnmodularcar.fix` -- Required to use `mycar fix`.
@@ -65,9 +88,6 @@ Misc:
 - `spawnmodularcar.autofilltankers` - Required to use automatic filling of tanker modules (i.e. `mycar autofilltankers`).
 - `spawnmodularcar.underwater` -- Allows your car to be driven underwater (scuba gear is recommended). Note: Underwater driving is noticeably slower than on land.
 - `spawnmodularcar.autostartengine` -- Instantly start your car's engine when you get in.
-- `spawnmodularcar.presets` -- Allows you to spawn your car from a preset. Also enables the `save`, `update`, `rename` and `delete` preset commands.
-- `spawnmodularcar.presets.load` -- Required to use `mycar load`.
-- `spawnmodularcar.givecar` -- Required to use the `givecar` command.
 
 ## Configuration
 
@@ -169,6 +189,7 @@ Here are all of the available options you can define per preset. Most default to
   "Generic.Error.NoPermission": "You don't have permission to use this command.",
   "Generic.Error.BuildingBlocked": "Error: Cannot do that while building blocked.",
   "Generic.Error.NoPresets": "You don't have any saved presets.",
+  "Generic.Error.NoCommonPresets": "There are no common presets.",
   "Generic.Error.CarNotFound": "Error: You need a car to do that.",
   "Generic.Error.CarOccupied": "Error: Cannot do that while your car is occupied.",
   "Generic.Error.CarDead": "Error: Your car is dead.",
@@ -187,21 +208,29 @@ Here are all of the available options you can define per preset. Most default to
   "Command.Spawn.Success": "Here is your modular car.",
   "Command.Spawn.Success.Locked": "A matching key was added to your inventory.",
   "Command.Spawn.Success.Preset": "Here is your modular car from preset <color=yellow>{0}</color>.",
+  "Command.Fix.Success": "Your car was fixed.",
   "Command.Fetch.Error.StuckOnLift": "Error: Unable to fetch your car from its lift.",
   "Command.Fetch.Error.StuckOnLift.Help": "You can use <color=yellow>mycar destroy</color> to destroy it.",
   "Command.Fetch.Success": "Here is your modular car.",
-  "Command.Fix.Success": "Your car was fixed.",
-  "Command.SavePreset.Error.TooManyPresets": "Error: You may not have more than <color=yellow>{0}</color> presets. Please delete another preset and try again. See <color=yellow>mycar help</color>.",
+  "Command.SavePreset.Error.TooManyPresets": "Error: You may not have more than <color=yellow>{0}</color> presets. You may delete another preset and try again. See <color=yellow>mycar help</color>.",
   "Command.SavePreset.Error.PresetAlreadyExists": "Error: Preset <color=yellow>{0}</color> already exists. Use <color=yellow>mycar update {0}</color> to update it.",
   "Command.SavePreset.Success": "Saved car as <color=yellow>{0}</color> preset.",
   "Command.UpdatePreset.Success": "Updated <color=yellow>{0}</color> preset with current module configuration.",
-  "Command.LoadPreset.Error.SocketCount": "Error: Unable to load <color=yellow>{0}</color> preset ({1} sockets) because your car has <color=yellow>{2}</color> sockets.",
+  "Command.LoadPreset.Error.SocketCount": "Error: Unable to load <color=yellow>{0}</color> preset (<color=yellow>{1}</color> sockets) because your car has <color=yellow>{2}</color> sockets.",
   "Command.LoadPreset.Success": "Loaded <color=yellow>{0}</color> preset onto your car.",
   "Command.DeletePreset.Success": "Deleted <color=yellow>{0}</color> preset.",
   "Command.RenamePreset.Error.Syntax": "Syntax: <color=yellow>mycar rename <name> <new_name></color>",
   "Command.RenamePreset.Success": "Renamed <color=yellow>{0}</color> preset to <color=yellow>{1}</color>",
   "Command.List": "Your saved modular car presets:",
   "Command.List.Item": "<color=yellow>{0}</color> ({1} sockets)",
+  "Command.Common.List": "Common modular car presets:",
+  "Command.Common.Error.Syntax": "Try <color=yellow>mycar help</color>",
+  "Command.Common.LoadPreset.Error.Syntax": "Syntax: <color=yellow>mycar common load <name></color>",
+  "Command.Common.SavePreset.Error.Syntax": "Syntax: <color=yellow>mycar common save <name></color>",
+  "Command.Common.SavePreset.Error.PresetAlreadyExists": "Error: Common preset <color=yellow>{0}</color> already exists. Use <color=yellow>mycar common update {0}</color> to update it.",
+  "Command.Common.UpdatePreset.Error.Syntax": "Syntax: <color=yellow>mycar common update <name></color>",
+  "Command.Common.RenamePreset.Error.Syntax": "Syntax: <color=yellow>mycar common rename <name> <new_name></color>",
+  "Command.Common.DeletePreset.Error.Syntax": "Syntax: <color=yellow>mycar common delete <name></color>",
   "Command.ToggleAutoCodeLock.Success": "<color=yellow>AutoCodeLock</color> set to {0}",
   "Command.ToggleAutoKeyLock.Success": "<color=yellow>AutoKeyLock</color> set to {0}",
   "Command.ToggleAutoFillTankers.Success": "<color=yellow>AutoFillTankers</color> set to {0}",
@@ -213,20 +242,31 @@ Here are all of the available options you can define per preset. Most default to
   "Command.Help": "<color=orange>SpawnModularCar Command Usages</color>",
   "Command.Help.Spawn.Basic": "<color=yellow>mycar</color> - Spawn a random car with max allowed sockets",
   "Command.Help.Spawn.Basic.PresetsAllowed": "<color=yellow>mycar</color> - Spawn a car using your <color=yellow>default</color> preset if saved, else spawn a random car with max allowed sockets",
-  "Command.Help.Spawn.Sockets": "<color=yellow>mycar <2|3|4></color> - Spawn a random car with the specified number of sockets",
-  "Command.Help.Spawn.Preset": "<color=yellow>mycar <name></color> - Spawn a car from a saved preset",
+  "Command.Help.Spawn.Sockets": "<color=yellow>mycar <2|3|4></color> - Spawn a random car of desired length",
   "Command.Help.Fetch": "<color=yellow>mycar fetch</color> - Fetch your car",
   "Command.Help.Fix": "<color=yellow>mycar fix</color> - Fix your car",
   "Command.Help.Destroy": "<color=yellow>mycar destroy</color> - Destroy your car",
+  "Command.Help.Section.PersonalPresets": "<color=orange>--- Personal presets ---</color>",
   "Command.Help.ListPresets": "<color=yellow>mycar list</color> - List your saved presets",
-  "Command.Help.SavePreset": "<color=yellow>mycar save <name></color> - Save your car as a preset",
-  "Command.Help.UpdatePreset": "<color=yellow>mycar update <name></color> - Overwrite an existing preset",
+  "Command.Help.Spawn.Preset": "<color=yellow>mycar <name></color> - Spawn a car from a saved preset",
   "Command.Help.LoadPreset": "<color=yellow>mycar load <name></color> - Load a preset onto your car",
+  "Command.Help.SavePreset": "<color=yellow>mycar save <name></color> - Save your car as a preset",
+  "Command.Help.UpdatePreset": "<color=yellow>mycar update <name></color> - Overwrite a preset",
   "Command.Help.RenamePreset": "<color=yellow>mycar rename <name> <new_name></color> - Rename a preset",
   "Command.Help.DeletePreset": "<color=yellow>mycar delete <name></color> - Delete a preset",
+  "Command.Help.Section.CommonPresets": "<color=orange>--- Common presets ---</color>",
+  "Command.Help.Common.ListPresets": "<color=yellow>mycar common list</color> - List common presets",
+  "Command.Help.Common.Spawn": "<color=yellow>mycar common <name></color> - Spawn a car from a common preset",
+  "Command.Help.Common.LoadPreset": "<color=yellow>mycar common load <name></color> - Load a common preset onto your car",
+  "Command.Help.Common.SavePreset": "<color=yellow>mycar common save <name></color> - Save your car as a common preset",
+  "Command.Help.Common.UpdatePreset": "<color=yellow>mycar common update <name></color> - Overwrite a common preset",
+  "Command.Help.Common.RenamePreset": "<color=yellow>mycar common rename <name> <new_name></color> - Rename a common preset",
+  "Command.Help.Common.DeletePreset": "<color=yellow>mycar common delete <name></color> - Delete a common preset",
+  "Command.Help.Section.PersonalSettings": "<color=orange>--- Personal settings ---</color>",
   "Command.Help.ToggleAutoCodeLock": "<color=yellow>mycar autocodelock</color> - Toggle AutoCodeLock: {0}",
   "Command.Help.ToggleAutoKeyLock": "<color=yellow>mycar autokeylock</color> - Toggle AutoKeyLock: {0}",
   "Command.Help.ToggleAutoFillTankers": "<color=yellow>mycar autofilltankers</color> - Toggle automatic filling of tankers with fresh water: {0}",
+  "Command.Help.Section.OtherCommands": "<color=orange>--- Other commands ---</color>",
   "Command.Help.Give": "<color=yellow>givecar <player> <preset></color> - Spawn a car for the target player from the specified server preset"
 }
 ```
