@@ -1727,125 +1727,156 @@ namespace Oxide.Plugins
 
         #endregion
 
-        #region Localization
+        #region Data Management
 
-        private string BooleanToLocalizedString(IPlayer player, bool value) =>
-            value ? GetMessage(player, "Generic.Setting.On") : GetMessage(player, "Generic.Setting.Off");
-
-        private void ReplyToPlayer(IPlayer player, string messageName, params object[] args) =>
-            player.Reply(string.Format(GetMessage(player, messageName), args));
-
-        private void ChatMessage(BasePlayer player, string messageName, params object[] args) =>
-            player.ChatMessage(string.Format(GetMessage(player.IPlayer, messageName), args));
-
-        private string GetMessage(IPlayer player, string messageName, params object[] args)
+        internal class PluginData : SimplePresetManager
         {
-            var message = lang.GetMessage(messageName, this, player.Id);
-            return args.Length > 0 ? string.Format(message, args) : message;
+            [JsonProperty("playerCars")]
+            public Dictionary<string, uint> playerCars = new Dictionary<string, uint>();
+
+            public override void SaveData()
+            {
+                Interface.Oxide.DataFileSystem.WriteObject(pluginInstance.Name, this);
+            }
+
+            public void RegisterCar(string userID, ModularCar car)
+            {
+                playerCars.Add(userID, car.net.ID);
+                SaveData();
+            }
+
+            public void UnregisterCar(string userID)
+            {
+                playerCars.Remove(userID);
+                SaveData();
+            }
         }
 
-        protected override void LoadDefaultMessages()
+        private PlayerConfig GetPlayerConfig(IPlayer player) =>
+            GetPlayerConfig(player.Id);
+
+        private PlayerConfig GetPlayerConfig(string userID)
         {
-            lang.RegisterMessages(new Dictionary<string, string>
+            if (PlayerConfigsMap.ContainsKey(userID))
+                return PlayerConfigsMap[userID];
+
+            PlayerConfig config = PlayerConfig.Get(Name, userID);
+            PlayerConfigsMap.Add(userID, config);
+            return config;
+        }
+
+        internal abstract class SimplePresetManager
+        {
+            public static Func<SimplePreset, bool> MatchPresetName(string presetName) =>
+                new Func<SimplePreset, bool>(preset => preset.Name.Equals(presetName, StringComparison.CurrentCultureIgnoreCase));
+
+            [JsonProperty("Presets")]
+            public List<SimplePreset> Presets = new List<SimplePreset>();
+
+            public SimplePreset FindPreset(string presetName) =>
+                Presets.FirstOrDefault(MatchPresetName(presetName));
+
+            public List<SimplePreset> FindMatchingPresets(string presetName) =>
+                Presets.Where(preset => preset.Name.IndexOf(presetName, StringComparison.CurrentCultureIgnoreCase) >= 0).ToList();
+
+            public bool HasPreset(string presetName) =>
+                Presets.Any(MatchPresetName(presetName));
+
+            public void SavePreset(SimplePreset newPreset)
             {
-                ["Generic.Setting.On"] = "<color=yellow>ON</color>",
-                ["Generic.Setting.Off"] = "<color=#bbb>OFF</color>",
+                Presets.Add(newPreset);
+                SaveData();
+            }
 
-                ["Generic.Error.NoPermission"] = "You don't have permission to use this command.",
-                ["Generic.Error.BuildingBlocked"] = "Error: Cannot do that while building blocked.",
-                ["Generic.Error.NoPresets"] = "You don't have any saved presets.",
-                ["Generic.Error.NoCommonPresets"] = "There are no common presets.",
-                ["Generic.Error.CarNotFound"] = "Error: You need a car to do that.",
-                ["Generic.Error.CarOccupied"] = "Error: Cannot do that while your car is occupied.",
-                ["Generic.Error.CarDead"] = "Error: Your car is dead.",
-                ["Generic.Error.Cooldown"] = "Please wait <color=yellow>{0}s</color> and try again.",
-                ["Generic.Error.NoPermissionToPresetSocketCount"] = "Error: You don't have permission to use preset <color=yellow>{0}</color> because it requires <color=yellow>{1}</color> sockets.",
-                ["Generic.Error.PresetNotFound"] = "Error: Preset <color=yellow>{0}</color> not found.",
-                ["Generic.Error.PresetMultipleMatches"] = "Error: Multiple presets found matching <color=yellow>{0}</color>. Use <color=yellow>mycar list</color> to view your presets.",
-                ["Generic.Error.PresetAlreadyTaken"] = "Error: Preset <color=yellow>{0}</color> is already taken.",
-                ["Generic.Error.PresetNameLength"] = "Error: Preset name may not be longer than {0} characters.",
-                ["Generic.Error.CarLocked"] = "That vehicle is locked.",
+            public void UpdatePreset(SimplePreset newPreset)
+            {
+                var presetIndex = Presets.FindIndex(new Predicate<SimplePreset>(MatchPresetName(newPreset.Name)));
+                if (presetIndex == -1) return;
+                Presets[presetIndex] = newPreset;
+                SaveData();
+            }
 
-                ["Generic.Info.CarDestroyed"] = "Your modular car was destroyed.",
-                ["Generic.Info.PartsRecovered"] = "Recovered engine components were added to your inventory or dropped in front of you.",
+            public void RenamePreset(SimplePreset preset, string newName)
+            {
+                preset.Name = newName;
+                SaveData();
+            }
 
-                ["Command.Spawn.Error.SocketSyntax"] = "Syntax: <color=yellow>mycar <2|3|4></color>",
-                ["Command.Spawn.Error.CarAlreadyExists"] = "Error: You already have a car.",
-                ["Command.Spawn.Error.CarAlreadyExists.Help"] = "Try <color=yellow>mycar fetch</color> or <color=yellow>mycar help</color>.",
-                ["Command.Spawn.Success"] = "Here is your modular car.",
-                ["Command.Spawn.Success.Locked"] = "A matching key was added to your inventory.",
-                ["Command.Spawn.Success.Preset"] = "Here is your modular car from preset <color=yellow>{0}</color>.",
+            public void DeletePreset(SimplePreset preset)
+            {
+                Presets.Remove(preset);
+                SaveData();
+            }
 
-                ["Command.Fix.Success"] = "Your car was fixed.",
-                ["Command.Fetch.Error.StuckOnLift"] = "Error: Unable to fetch your car from its lift.",
-                ["Command.Fetch.Error.StuckOnLift.Help"] = "You can use <color=yellow>mycar destroy</color> to destroy it.",
-                ["Command.Fetch.Success"] = "Here is your modular car.",
+            public abstract void SaveData();
+        }
 
-                ["Command.SavePreset.Error.TooManyPresets"] = "Error: You may not have more than <color=yellow>{0}</color> presets. You may delete another preset and try again. See <color=yellow>mycar help</color>.",
-                ["Command.SavePreset.Error.PresetAlreadyExists"] = "Error: Preset <color=yellow>{0}</color> already exists. Use <color=yellow>mycar update {0}</color> to update it.",
-                ["Command.SavePreset.Success"] = "Saved car as <color=yellow>{0}</color> preset.",
-                ["Command.UpdatePreset.Success"] = "Updated <color=yellow>{0}</color> preset with current module configuration.",
-                ["Command.LoadPreset.Error.SocketCount"] = "Error: Unable to load <color=yellow>{0}</color> preset (<color=yellow>{1}</color> sockets) because your car has <color=yellow>{2}</color> sockets.",
-                ["Command.LoadPreset.Success"] = "Loaded <color=yellow>{0}</color> preset onto your car.",
-                ["Command.DeletePreset.Success"] = "Deleted <color=yellow>{0}</color> preset.",
-                ["Command.RenamePreset.Error.Syntax"] = "Syntax: <color=yellow>mycar rename <name> <new_name></color>",
-                ["Command.RenamePreset.Success"] = "Renamed <color=yellow>{0}</color> preset to <color=yellow>{1}</color>",
-                ["Command.List"] = "Your saved modular car presets:",
-                ["Command.List.Item"] = "<color=yellow>{0}</color> ({1} sockets)",
+        internal class PlayerConfig : SimplePresetManager
+        {
+            public static PlayerConfig Get(string dirPath, string ownerID)
+            {
+                var filepath = $"{dirPath}/{ownerID}";
 
-                ["Command.Common.List"] = "Common modular car presets:",
-                ["Command.Common.Error.Syntax"] = "Try <color=yellow>mycar help</color>",
-                ["Command.Common.LoadPreset.Error.Syntax"] = "Syntax: <color=yellow>mycar common load <name></color>",
-                ["Command.Common.SavePreset.Error.Syntax"] = "Syntax: <color=yellow>mycar common save <name></color>",
-                ["Command.Common.SavePreset.Error.PresetAlreadyExists"] = "Error: Common preset <color=yellow>{0}</color> already exists. Use <color=yellow>mycar common update {0}</color> to update it.",
-                ["Command.Common.UpdatePreset.Error.Syntax"] = "Syntax: <color=yellow>mycar common update <name></color>",
-                ["Command.Common.RenamePreset.Error.Syntax"] = "Syntax: <color=yellow>mycar common rename <name> <new_name></color>",
-                ["Command.Common.DeletePreset.Error.Syntax"] = "Syntax: <color=yellow>mycar common delete <name></color>",
+                var config = Interface.Oxide.DataFileSystem.ExistsDatafile(filepath) ?
+                    Interface.Oxide.DataFileSystem.ReadObject<PlayerConfig>(filepath) :
+                    new PlayerConfig(ownerID);
 
-                ["Command.ToggleAutoCodeLock.Success"] = "<color=yellow>AutoCodeLock</color> set to {0}",
-                ["Command.ToggleAutoKeyLock.Success"] = "<color=yellow>AutoKeyLock</color> set to {0}",
-                ["Command.ToggleAutoFillTankers.Success"] = "<color=yellow>AutoFillTankers</color> set to {0}",
+                config.Filepath = filepath;
+                return config;
+            }
 
-                ["Command.Give.Error.Syntax"] = "Syntax: <color=yellow>givecar <player> <preset></color>",
-                ["Command.Give.Error.PlayerNotFound"] = "Error: Player <color=yellow>{0}</color> not found.",
-                ["Command.Give.Error.PresetTooFewModules"] = "Error: Preset <color=yellow>{0}</color> has too few modules ({1}).",
-                ["Command.Give.Error.PresetTooManyModules"] = "Error: Preset <color=yellow>{0}</color> has too many modules ({1}).",
-                ["Command.Give.Success"] = "Modular car given to <color=yellow>{0}</color> from preset <color=yellow>{1}</color>.",
+            [JsonIgnore]
+            private string Filepath;
 
-                ["Command.Help"] = "<color=orange>SpawnModularCar Command Usages</color>",
-                ["Command.Help.Spawn.Basic"] = "<color=yellow>mycar</color> - Spawn a random car with max allowed sockets",
-                ["Command.Help.Spawn.Basic.PresetsAllowed"] = "<color=yellow>mycar</color> - Spawn a car using your <color=yellow>default</color> preset if saved, else spawn a random car with max allowed sockets",
-                ["Command.Help.Spawn.Sockets"] = "<color=yellow>mycar <2|3|4></color> - Spawn a random car of desired length",
-                ["Command.Help.Fetch"] = "<color=yellow>mycar fetch</color> - Fetch your car",
-                ["Command.Help.Fix"] = "<color=yellow>mycar fix</color> - Fix your car",
-                ["Command.Help.Destroy"] = "<color=yellow>mycar destroy</color> - Destroy your car",
+            [JsonProperty("OwnerID")]
+            public string OwnerID { get; private set; }
 
-                ["Command.Help.Section.PersonalPresets"] = "<color=orange>--- Personal presets ---</color>",
-                ["Command.Help.ListPresets"] = "<color=yellow>mycar list</color> - List your saved presets",
-                ["Command.Help.Spawn.Preset"] = "<color=yellow>mycar <name></color> - Spawn a car from a saved preset",
-                ["Command.Help.LoadPreset"] = "<color=yellow>mycar load <name></color> - Load a preset onto your car",
-                ["Command.Help.SavePreset"] = "<color=yellow>mycar save <name></color> - Save your car as a preset",
-                ["Command.Help.UpdatePreset"] = "<color=yellow>mycar update <name></color> - Overwrite a preset",
-                ["Command.Help.RenamePreset"] = "<color=yellow>mycar rename <name> <new_name></color> - Rename a preset",
-                ["Command.Help.DeletePreset"] = "<color=yellow>mycar delete <name></color> - Delete a preset",
+            [JsonProperty("Settings")]
+            public PlayerSettings Settings = new PlayerSettings();
 
-                ["Command.Help.Section.CommonPresets"] = "<color=orange>--- Common presets ---</color>",
-                ["Command.Help.Common.ListPresets"] = "<color=yellow>mycar common list</color> - List common presets",
-                ["Command.Help.Common.Spawn"] = "<color=yellow>mycar common <name></color> - Spawn a car from a common preset",
-                ["Command.Help.Common.LoadPreset"] = "<color=yellow>mycar common load <name></color> - Load a common preset onto your car",
-                ["Command.Help.Common.SavePreset"] = "<color=yellow>mycar common save <name></color> - Save your car as a common preset",
-                ["Command.Help.Common.UpdatePreset"] = "<color=yellow>mycar common update <name></color> - Overwrite a common preset",
-                ["Command.Help.Common.RenamePreset"] = "<color=yellow>mycar common rename <name> <new_name></color> - Rename a common preset",
-                ["Command.Help.Common.DeletePreset"] = "<color=yellow>mycar common delete <name></color> - Delete a common preset",
+            public PlayerConfig(string ownerID)
+            {
+                OwnerID = ownerID;
+            }
 
-                ["Command.Help.Section.PersonalSettings"] = "<color=orange>--- Personal settings ---</color>",
-                ["Command.Help.ToggleAutoCodeLock"] = "<color=yellow>mycar autocodelock</color> - Toggle AutoCodeLock: {0}",
-                ["Command.Help.ToggleAutoKeyLock"] = "<color=yellow>mycar autokeylock</color> - Toggle AutoKeyLock: {0}",
-                ["Command.Help.ToggleAutoFillTankers"] = "<color=yellow>mycar autofilltankers</color> - Toggle automatic filling of tankers with fresh water: {0}",
+            public override void SaveData() =>
+                Interface.Oxide.DataFileSystem.WriteObject(Filepath, this);
+        }
 
-                ["Command.Help.Section.OtherCommands"] = "<color=orange>--- Other commands ---</color>",
-                ["Command.Help.Give"] = "<color=yellow>givecar <player> <preset></color> - Spawn a car for the target player from the specified server preset",
-            }, this);
+        internal class SimplePreset
+        {
+            public static SimplePreset FromCar(ModularCar car, string presetName)
+            {
+                return new SimplePreset
+                {
+                    Name = presetName,
+                    ModuleIDs = pluginInstance.GetCarModuleIDs(car)
+                };
+            }
+
+            [JsonProperty("Name")]
+            public string Name;
+
+            [JsonProperty("ModuleIDs")]
+            public int[] ModuleIDs;
+
+            [JsonIgnore]
+            public int NumSockets
+            {
+                get { return ModuleIDs.Length; }
+            }
+        }
+
+        internal class PlayerSettings
+        {
+            [JsonProperty("AutoCodeLock")]
+            public bool AutoCodeLock = false;
+
+            [JsonProperty("AutoKeyLock")]
+            public bool AutoKeyLock = false;
+
+            [JsonProperty("AutoFillTankers")]
+            public bool AutoFillTankers = false;
         }
 
         #endregion
@@ -2031,156 +2062,125 @@ namespace Oxide.Plugins
 
         #endregion
 
-        #region Data Management
+        #region Localization
 
-        internal class PluginData : SimplePresetManager
+        private string BooleanToLocalizedString(IPlayer player, bool value) =>
+            value ? GetMessage(player, "Generic.Setting.On") : GetMessage(player, "Generic.Setting.Off");
+
+        private void ReplyToPlayer(IPlayer player, string messageName, params object[] args) =>
+            player.Reply(string.Format(GetMessage(player, messageName), args));
+
+        private void ChatMessage(BasePlayer player, string messageName, params object[] args) =>
+            player.ChatMessage(string.Format(GetMessage(player.IPlayer, messageName), args));
+
+        private string GetMessage(IPlayer player, string messageName, params object[] args)
         {
-            [JsonProperty("playerCars")]
-            public Dictionary<string, uint> playerCars = new Dictionary<string, uint>();
-
-            public override void SaveData()
-            {
-                Interface.Oxide.DataFileSystem.WriteObject(pluginInstance.Name, this);
-            }
-
-            public void RegisterCar(string userID, ModularCar car)
-            {
-                playerCars.Add(userID, car.net.ID);
-                SaveData();
-            }
-
-            public void UnregisterCar(string userID)
-            {
-                playerCars.Remove(userID);
-                SaveData();
-            }
+            var message = lang.GetMessage(messageName, this, player.Id);
+            return args.Length > 0 ? string.Format(message, args) : message;
         }
 
-        private PlayerConfig GetPlayerConfig(IPlayer player) =>
-            GetPlayerConfig(player.Id);
-
-        private PlayerConfig GetPlayerConfig(string userID)
+        protected override void LoadDefaultMessages()
         {
-            if (PlayerConfigsMap.ContainsKey(userID))
-                return PlayerConfigsMap[userID];
-
-            PlayerConfig config = PlayerConfig.Get(Name, userID);
-            PlayerConfigsMap.Add(userID, config);
-            return config;
-        }
-
-        internal abstract class SimplePresetManager
-        {
-            public static Func<SimplePreset, bool> MatchPresetName(string presetName) =>
-                new Func<SimplePreset, bool>(preset => preset.Name.Equals(presetName, StringComparison.CurrentCultureIgnoreCase));
-
-            [JsonProperty("Presets")]
-            public List<SimplePreset> Presets = new List<SimplePreset>();
-
-            public SimplePreset FindPreset(string presetName) =>
-                Presets.FirstOrDefault(MatchPresetName(presetName));
-
-            public List<SimplePreset> FindMatchingPresets(string presetName) =>
-                Presets.Where(preset => preset.Name.IndexOf(presetName, StringComparison.CurrentCultureIgnoreCase) >= 0).ToList();
-
-            public bool HasPreset(string presetName) =>
-                Presets.Any(MatchPresetName(presetName));
-
-            public void SavePreset(SimplePreset newPreset)
+            lang.RegisterMessages(new Dictionary<string, string>
             {
-                Presets.Add(newPreset);
-                SaveData();
-            }
+                ["Generic.Setting.On"] = "<color=yellow>ON</color>",
+                ["Generic.Setting.Off"] = "<color=#bbb>OFF</color>",
 
-            public void UpdatePreset(SimplePreset newPreset)
-            {
-                var presetIndex = Presets.FindIndex(new Predicate<SimplePreset>(MatchPresetName(newPreset.Name)));
-                if (presetIndex == -1) return;
-                Presets[presetIndex] = newPreset;
-                SaveData();
-            }
+                ["Generic.Error.NoPermission"] = "You don't have permission to use this command.",
+                ["Generic.Error.BuildingBlocked"] = "Error: Cannot do that while building blocked.",
+                ["Generic.Error.NoPresets"] = "You don't have any saved presets.",
+                ["Generic.Error.NoCommonPresets"] = "There are no common presets.",
+                ["Generic.Error.CarNotFound"] = "Error: You need a car to do that.",
+                ["Generic.Error.CarOccupied"] = "Error: Cannot do that while your car is occupied.",
+                ["Generic.Error.CarDead"] = "Error: Your car is dead.",
+                ["Generic.Error.Cooldown"] = "Please wait <color=yellow>{0}s</color> and try again.",
+                ["Generic.Error.NoPermissionToPresetSocketCount"] = "Error: You don't have permission to use preset <color=yellow>{0}</color> because it requires <color=yellow>{1}</color> sockets.",
+                ["Generic.Error.PresetNotFound"] = "Error: Preset <color=yellow>{0}</color> not found.",
+                ["Generic.Error.PresetMultipleMatches"] = "Error: Multiple presets found matching <color=yellow>{0}</color>. Use <color=yellow>mycar list</color> to view your presets.",
+                ["Generic.Error.PresetAlreadyTaken"] = "Error: Preset <color=yellow>{0}</color> is already taken.",
+                ["Generic.Error.PresetNameLength"] = "Error: Preset name may not be longer than {0} characters.",
+                ["Generic.Error.CarLocked"] = "That vehicle is locked.",
 
-            public void RenamePreset(SimplePreset preset, string newName)
-            {
-                preset.Name = newName;
-                SaveData();
-            }
+                ["Generic.Info.CarDestroyed"] = "Your modular car was destroyed.",
+                ["Generic.Info.PartsRecovered"] = "Recovered engine components were added to your inventory or dropped in front of you.",
 
-            public void DeletePreset(SimplePreset preset)
-            {
-                Presets.Remove(preset);
-                SaveData();
-            }
+                ["Command.Spawn.Error.SocketSyntax"] = "Syntax: <color=yellow>mycar <2|3|4></color>",
+                ["Command.Spawn.Error.CarAlreadyExists"] = "Error: You already have a car.",
+                ["Command.Spawn.Error.CarAlreadyExists.Help"] = "Try <color=yellow>mycar fetch</color> or <color=yellow>mycar help</color>.",
+                ["Command.Spawn.Success"] = "Here is your modular car.",
+                ["Command.Spawn.Success.Locked"] = "A matching key was added to your inventory.",
+                ["Command.Spawn.Success.Preset"] = "Here is your modular car from preset <color=yellow>{0}</color>.",
 
-            public abstract void SaveData();
-        }
+                ["Command.Fix.Success"] = "Your car was fixed.",
+                ["Command.Fetch.Error.StuckOnLift"] = "Error: Unable to fetch your car from its lift.",
+                ["Command.Fetch.Error.StuckOnLift.Help"] = "You can use <color=yellow>mycar destroy</color> to destroy it.",
+                ["Command.Fetch.Success"] = "Here is your modular car.",
 
-        internal class PlayerConfig : SimplePresetManager
-        {
-            public static PlayerConfig Get(string dirPath, string ownerID)
-            {
-                var filepath = $"{dirPath}/{ownerID}";
+                ["Command.SavePreset.Error.TooManyPresets"] = "Error: You may not have more than <color=yellow>{0}</color> presets. You may delete another preset and try again. See <color=yellow>mycar help</color>.",
+                ["Command.SavePreset.Error.PresetAlreadyExists"] = "Error: Preset <color=yellow>{0}</color> already exists. Use <color=yellow>mycar update {0}</color> to update it.",
+                ["Command.SavePreset.Success"] = "Saved car as <color=yellow>{0}</color> preset.",
+                ["Command.UpdatePreset.Success"] = "Updated <color=yellow>{0}</color> preset with current module configuration.",
+                ["Command.LoadPreset.Error.SocketCount"] = "Error: Unable to load <color=yellow>{0}</color> preset (<color=yellow>{1}</color> sockets) because your car has <color=yellow>{2}</color> sockets.",
+                ["Command.LoadPreset.Success"] = "Loaded <color=yellow>{0}</color> preset onto your car.",
+                ["Command.DeletePreset.Success"] = "Deleted <color=yellow>{0}</color> preset.",
+                ["Command.RenamePreset.Error.Syntax"] = "Syntax: <color=yellow>mycar rename <name> <new_name></color>",
+                ["Command.RenamePreset.Success"] = "Renamed <color=yellow>{0}</color> preset to <color=yellow>{1}</color>",
+                ["Command.List"] = "Your saved modular car presets:",
+                ["Command.List.Item"] = "<color=yellow>{0}</color> ({1} sockets)",
 
-                var config = Interface.Oxide.DataFileSystem.ExistsDatafile(filepath) ?
-                    Interface.Oxide.DataFileSystem.ReadObject<PlayerConfig>(filepath) :
-                    new PlayerConfig(ownerID);
+                ["Command.Common.List"] = "Common modular car presets:",
+                ["Command.Common.Error.Syntax"] = "Try <color=yellow>mycar help</color>",
+                ["Command.Common.LoadPreset.Error.Syntax"] = "Syntax: <color=yellow>mycar common load <name></color>",
+                ["Command.Common.SavePreset.Error.Syntax"] = "Syntax: <color=yellow>mycar common save <name></color>",
+                ["Command.Common.SavePreset.Error.PresetAlreadyExists"] = "Error: Common preset <color=yellow>{0}</color> already exists. Use <color=yellow>mycar common update {0}</color> to update it.",
+                ["Command.Common.UpdatePreset.Error.Syntax"] = "Syntax: <color=yellow>mycar common update <name></color>",
+                ["Command.Common.RenamePreset.Error.Syntax"] = "Syntax: <color=yellow>mycar common rename <name> <new_name></color>",
+                ["Command.Common.DeletePreset.Error.Syntax"] = "Syntax: <color=yellow>mycar common delete <name></color>",
 
-                config.Filepath = filepath;
-                return config;
-            }
+                ["Command.ToggleAutoCodeLock.Success"] = "<color=yellow>AutoCodeLock</color> set to {0}",
+                ["Command.ToggleAutoKeyLock.Success"] = "<color=yellow>AutoKeyLock</color> set to {0}",
+                ["Command.ToggleAutoFillTankers.Success"] = "<color=yellow>AutoFillTankers</color> set to {0}",
 
-            [JsonIgnore]
-            private string Filepath;
+                ["Command.Give.Error.Syntax"] = "Syntax: <color=yellow>givecar <player> <preset></color>",
+                ["Command.Give.Error.PlayerNotFound"] = "Error: Player <color=yellow>{0}</color> not found.",
+                ["Command.Give.Error.PresetTooFewModules"] = "Error: Preset <color=yellow>{0}</color> has too few modules ({1}).",
+                ["Command.Give.Error.PresetTooManyModules"] = "Error: Preset <color=yellow>{0}</color> has too many modules ({1}).",
+                ["Command.Give.Success"] = "Modular car given to <color=yellow>{0}</color> from preset <color=yellow>{1}</color>.",
 
-            [JsonProperty("OwnerID")]
-            public string OwnerID { get; private set; }
+                ["Command.Help"] = "<color=orange>SpawnModularCar Command Usages</color>",
+                ["Command.Help.Spawn.Basic"] = "<color=yellow>mycar</color> - Spawn a random car with max allowed sockets",
+                ["Command.Help.Spawn.Basic.PresetsAllowed"] = "<color=yellow>mycar</color> - Spawn a car using your <color=yellow>default</color> preset if saved, else spawn a random car with max allowed sockets",
+                ["Command.Help.Spawn.Sockets"] = "<color=yellow>mycar <2|3|4></color> - Spawn a random car of desired length",
+                ["Command.Help.Fetch"] = "<color=yellow>mycar fetch</color> - Fetch your car",
+                ["Command.Help.Fix"] = "<color=yellow>mycar fix</color> - Fix your car",
+                ["Command.Help.Destroy"] = "<color=yellow>mycar destroy</color> - Destroy your car",
 
-            [JsonProperty("Settings")]
-            public PlayerSettings Settings = new PlayerSettings();
+                ["Command.Help.Section.PersonalPresets"] = "<color=orange>--- Personal presets ---</color>",
+                ["Command.Help.ListPresets"] = "<color=yellow>mycar list</color> - List your saved presets",
+                ["Command.Help.Spawn.Preset"] = "<color=yellow>mycar <name></color> - Spawn a car from a saved preset",
+                ["Command.Help.LoadPreset"] = "<color=yellow>mycar load <name></color> - Load a preset onto your car",
+                ["Command.Help.SavePreset"] = "<color=yellow>mycar save <name></color> - Save your car as a preset",
+                ["Command.Help.UpdatePreset"] = "<color=yellow>mycar update <name></color> - Overwrite a preset",
+                ["Command.Help.RenamePreset"] = "<color=yellow>mycar rename <name> <new_name></color> - Rename a preset",
+                ["Command.Help.DeletePreset"] = "<color=yellow>mycar delete <name></color> - Delete a preset",
 
-            public PlayerConfig(string ownerID)
-            {
-                OwnerID = ownerID;
-            }
+                ["Command.Help.Section.CommonPresets"] = "<color=orange>--- Common presets ---</color>",
+                ["Command.Help.Common.ListPresets"] = "<color=yellow>mycar common list</color> - List common presets",
+                ["Command.Help.Common.Spawn"] = "<color=yellow>mycar common <name></color> - Spawn a car from a common preset",
+                ["Command.Help.Common.LoadPreset"] = "<color=yellow>mycar common load <name></color> - Load a common preset onto your car",
+                ["Command.Help.Common.SavePreset"] = "<color=yellow>mycar common save <name></color> - Save your car as a common preset",
+                ["Command.Help.Common.UpdatePreset"] = "<color=yellow>mycar common update <name></color> - Overwrite a common preset",
+                ["Command.Help.Common.RenamePreset"] = "<color=yellow>mycar common rename <name> <new_name></color> - Rename a common preset",
+                ["Command.Help.Common.DeletePreset"] = "<color=yellow>mycar common delete <name></color> - Delete a common preset",
 
-            public override void SaveData() =>
-                Interface.Oxide.DataFileSystem.WriteObject(Filepath, this);
-        }
+                ["Command.Help.Section.PersonalSettings"] = "<color=orange>--- Personal settings ---</color>",
+                ["Command.Help.ToggleAutoCodeLock"] = "<color=yellow>mycar autocodelock</color> - Toggle AutoCodeLock: {0}",
+                ["Command.Help.ToggleAutoKeyLock"] = "<color=yellow>mycar autokeylock</color> - Toggle AutoKeyLock: {0}",
+                ["Command.Help.ToggleAutoFillTankers"] = "<color=yellow>mycar autofilltankers</color> - Toggle automatic filling of tankers with fresh water: {0}",
 
-        internal class SimplePreset
-        {
-            public static SimplePreset FromCar(ModularCar car, string presetName)
-            {
-                return new SimplePreset
-                {
-                    Name = presetName,
-                    ModuleIDs = pluginInstance.GetCarModuleIDs(car)
-                };
-            }
-
-            [JsonProperty("Name")]
-            public string Name;
-
-            [JsonProperty("ModuleIDs")]
-            public int[] ModuleIDs;
-
-            [JsonIgnore]
-            public int NumSockets
-            {
-                get { return ModuleIDs.Length; }
-            }
-        }
-
-        internal class PlayerSettings
-        {
-            [JsonProperty("AutoCodeLock")]
-            public bool AutoCodeLock = false;
-
-            [JsonProperty("AutoKeyLock")]
-            public bool AutoKeyLock = false;
-
-            [JsonProperty("AutoFillTankers")]
-            public bool AutoFillTankers = false;
+                ["Command.Help.Section.OtherCommands"] = "<color=orange>--- Other commands ---</color>",
+                ["Command.Help.Give"] = "<color=yellow>givecar <player> <preset></color> - Spawn a car for the target player from the specified server preset",
+            }, this);
         }
 
         #endregion
