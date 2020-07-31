@@ -12,7 +12,7 @@ using System.Text;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "2.3.0")]
+    [Info("Spawn Modular Car", "WhiteThunder", "2.3.1")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -484,6 +484,7 @@ namespace Oxide.Plugins
 
             if (!VerifyHasNoCar(player)) return;
             if (!VerifyOffCooldown(SpawnCarCooldowns, player)) return;
+            if (!VerifyLocationNotRestricted(player)) return;
             if (!pluginConfig.CanSpawnBuildingBlocked && !VerifyNotBuildingBlocked(player)) return;
 
             // Key binds automatically pass the "True" argument
@@ -547,6 +548,7 @@ namespace Oxide.Plugins
             if (!VerifyPermissionAny(player, PermissionCommonPresets)) return;
             if (!VerifyHasNoCar(player)) return;
             if (!VerifyOffCooldown(SpawnCarCooldowns, player)) return;
+            if (!VerifyLocationNotRestricted(player)) return;
             if (!pluginConfig.CanSpawnBuildingBlocked && !VerifyNotBuildingBlocked(player)) return;
 
             var presetNameArg = args[0];
@@ -582,6 +584,7 @@ namespace Oxide.Plugins
             if (!VerifyHasCar(player, out car)) return;
             if (!pluginConfig.CanFetchOccupied && !VerifyCarNotOccupied(player, car)) return;
             if (!VerifyOffCooldown(FetchCarCooldowns, player)) return;
+            if (!VerifyLocationNotRestricted(player)) return;
             if (!pluginConfig.CanFetchBuildingBlocked && !VerifyNotBuildingBlocked(player)) return;
 
             // This is a hacky way to determine that the car is on a lift
@@ -973,6 +976,16 @@ namespace Oxide.Plugins
                     ReplyToPlayer(player, "Generic.Error.NoPermission");
                     return false;
                 }
+            }
+            return true;
+        }
+
+        private bool VerifyLocationNotRestricted(IPlayer player)
+        {
+            if ((player.Object as BasePlayer).GetComponentInParent<CargoShip>() != null)
+            {
+                ReplyToPlayer(player, "Generic.Error.LocationRestricted");
+                return false;
             }
             return true;
         }
@@ -2091,6 +2104,7 @@ namespace Oxide.Plugins
                 ["Generic.Setting.Off"] = "<color=#bbb>OFF</color>",
 
                 ["Generic.Error.NoPermission"] = "You don't have permission to use this command.",
+                ["Generic.Error.LocationRestricted"] = "Error: Cannot do that here.",
                 ["Generic.Error.BuildingBlocked"] = "Error: Cannot do that while building blocked.",
                 ["Generic.Error.NoPresets"] = "You don't have any saved presets.",
                 ["Generic.Error.NoCommonPresets"] = "There are no common presets.",
