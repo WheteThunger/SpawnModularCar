@@ -8,6 +8,7 @@ using Rust.Modular;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using System.Text;
 
 namespace Oxide.Plugins
 {
@@ -395,54 +396,55 @@ namespace Oxide.Plugins
             var canUsePresets = permission.UserHasPermission(player.Id, PermissionPresets);
             var canLoadPresets = permission.UserHasPermission(player.Id, PermissionPresetLoad);
 
-            var messages = new List<string> { GetMessage(player, "Command.Help") };
+            var sb = new StringBuilder();
+            sb.AppendLine(GetMessage(player, "Command.Help"));
 
             if (canUsePresets)
-                messages.Add(GetMessage(player, "Command.Help.Spawn.Basic.PresetsAllowed"));
+                sb.AppendLine(GetMessage(player, "Command.Help.Spawn.Basic.PresetsAllowed"));
             else
-                messages.Add(GetMessage(player, "Command.Help.Spawn.Basic"));
+                sb.AppendLine(GetMessage(player, "Command.Help.Spawn.Basic"));
 
-            messages.Add(GetMessage(player, "Command.Help.Spawn.Sockets"));
+            sb.AppendLine(GetMessage(player, "Command.Help.Spawn.Sockets"));
 
             if (permission.UserHasPermission(player.Id, PermissionFix))
-                messages.Add(GetMessage(player, "Command.Help.Fix"));
+                sb.AppendLine(GetMessage(player, "Command.Help.Fix"));
 
             if (permission.UserHasPermission(player.Id, PermissionFetch))
-                messages.Add(GetMessage(player, "Command.Help.Fetch"));
+                sb.AppendLine(GetMessage(player, "Command.Help.Fetch"));
 
             if (permission.UserHasPermission(player.Id, PermissionDespawn))
-                messages.Add(GetMessage(player, "Command.Help.Destroy"));
+                sb.AppendLine(GetMessage(player, "Command.Help.Destroy"));
 
             if (canUsePresets)
             {
-                messages.Add(GetMessage(player, "Command.Help.Section.PersonalPresets"));
-                messages.Add(GetMessage(player, "Command.Help.ListPresets"));
-                messages.Add(GetMessage(player, "Command.Help.Spawn.Preset"));
+                sb.AppendLine(GetMessage(player, "Command.Help.Section.PersonalPresets"));
+                sb.AppendLine(GetMessage(player, "Command.Help.ListPresets"));
+                sb.AppendLine(GetMessage(player, "Command.Help.Spawn.Preset"));
 
                 if (canLoadPresets)
-                    messages.Add(GetMessage(player, "Command.Help.LoadPreset"));
+                    sb.AppendLine(GetMessage(player, "Command.Help.LoadPreset"));
 
-                messages.Add(GetMessage(player, "Command.Help.SavePreset"));
-                messages.Add(GetMessage(player, "Command.Help.UpdatePreset"));
-                messages.Add(GetMessage(player, "Command.Help.RenamePreset"));
-                messages.Add(GetMessage(player, "Command.Help.DeletePreset"));
+                sb.AppendLine(GetMessage(player, "Command.Help.SavePreset"));
+                sb.AppendLine(GetMessage(player, "Command.Help.UpdatePreset"));
+                sb.AppendLine(GetMessage(player, "Command.Help.RenamePreset"));
+                sb.AppendLine(GetMessage(player, "Command.Help.DeletePreset"));
             }
 
             if (permission.UserHasPermission(player.Id, PermissionCommonPresets))
             {
-                messages.Add(GetMessage(player, "Command.Help.Section.CommonPresets"));
-                messages.Add(GetMessage(player, "Command.Help.Common.ListPresets"));
-                messages.Add(GetMessage(player, "Command.Help.Common.Spawn"));
+                sb.AppendLine(GetMessage(player, "Command.Help.Section.CommonPresets"));
+                sb.AppendLine(GetMessage(player, "Command.Help.Common.ListPresets"));
+                sb.AppendLine(GetMessage(player, "Command.Help.Common.Spawn"));
 
                 if (canLoadPresets)
-                    messages.Add(GetMessage(player, "Command.Help.Common.LoadPreset"));
+                    sb.AppendLine(GetMessage(player, "Command.Help.Common.LoadPreset"));
 
                 if (permission.UserHasPermission(player.Id, PermissionManageCommonPresets))
                 {
-                    messages.Add(GetMessage(player, "Command.Help.Common.SavePreset"));
-                    messages.Add(GetMessage(player, "Command.Help.Common.UpdatePreset"));
-                    messages.Add(GetMessage(player, "Command.Help.Common.RenamePreset"));
-                    messages.Add(GetMessage(player, "Command.Help.Common.DeletePreset"));
+                    sb.AppendLine(GetMessage(player, "Command.Help.Common.SavePreset"));
+                    sb.AppendLine(GetMessage(player, "Command.Help.Common.UpdatePreset"));
+                    sb.AppendLine(GetMessage(player, "Command.Help.Common.RenamePreset"));
+                    sb.AppendLine(GetMessage(player, "Command.Help.Common.DeletePreset"));
                 }
             }
 
@@ -451,24 +453,24 @@ namespace Oxide.Plugins
             var canFillTankers = permission.UserHasPermission(player.Id, PermissionAutoFillTankers);
 
             if (canCodeLock || canKeyLock || canFillTankers)
-                messages.Add(GetMessage(player, "Command.Help.Section.PersonalSettings"));
+                sb.AppendLine(GetMessage(player, "Command.Help.Section.PersonalSettings"));
 
             if (canCodeLock)
-                messages.Add(GetMessage(player, "Command.Help.ToggleAutoCodeLock", BooleanToLocalizedString(player, GetPlayerConfig(player).Settings.AutoCodeLock)));
+                sb.AppendLine(GetMessage(player, "Command.Help.ToggleAutoCodeLock", BooleanToLocalizedString(player, GetPlayerConfig(player).Settings.AutoCodeLock)));
 
             if (canKeyLock)
-                messages.Add(GetMessage(player, "Command.Help.ToggleAutoKeyLock", BooleanToLocalizedString(player, GetPlayerConfig(player).Settings.AutoKeyLock)));
+                sb.AppendLine(GetMessage(player, "Command.Help.ToggleAutoKeyLock", BooleanToLocalizedString(player, GetPlayerConfig(player).Settings.AutoKeyLock)));
 
             if (canFillTankers)
-                messages.Add(GetMessage(player, "Command.Help.ToggleAutoFillTankers", BooleanToLocalizedString(player, GetPlayerConfig(player).Settings.AutoFillTankers)));
+                sb.AppendLine(GetMessage(player, "Command.Help.ToggleAutoFillTankers", BooleanToLocalizedString(player, GetPlayerConfig(player).Settings.AutoFillTankers)));
 
             if (permission.UserHasPermission(player.Id, PermissionGiveCar))
             {
-                messages.Add("Command.Help.Section.OtherCommands");
-                messages.Add(GetMessage(player, "Command.Help.Give"));
+                sb.AppendLine("Command.Help.Section.OtherCommands");
+                sb.AppendLine(GetMessage(player, "Command.Help.Give"));
             }
 
-            player.Reply(string.Join("\n", messages));
+            player.Reply(sb.ToString());
         }
 
         private void SubCommand_SpawnCar(IPlayer player, string[] args)
@@ -585,7 +587,7 @@ namespace Oxide.Plugins
             // This is a hacky way to determine that the car is on a lift
             if (car.rigidBody.isKinematic && !TryReleaseCarFromLift(car))
             {
-                var messages = new List<String> { GetMessage(player, "Command.Fetch.Error.StuckOnLift") };
+                var messages = new List<string> { GetMessage(player, "Command.Fetch.Error.StuckOnLift") };
                 if (permission.UserHasPermission(player.Id, PermissionDespawn))
                     messages.Add(GetMessage(player, "Command.Fetch.Error.StuckOnLift.Help"));
 
@@ -637,15 +639,16 @@ namespace Oxide.Plugins
                 return;
             }
 
-            var chatMessages = new List<string> { GetMessage(player, "Command.List") };
-
             var presetList = config.Presets.Select(p => p).ToList();
             presetList.Sort(SortPresetNames);
 
-            foreach (var preset in presetList)
-                chatMessages.Add(GetMessage(player, "Command.List.Item", preset.Name, preset.NumSockets));
+            var sb = new StringBuilder();
+            sb.AppendLine(GetMessage(player, "Command.List"));
 
-            player.Reply(string.Join("\n", chatMessages));
+            foreach (var preset in presetList)
+                sb.AppendLine(GetMessage(player, "Command.List.Item", preset.Name, preset.NumSockets));
+
+            player.Reply(sb.ToString());
         }
 
         private void SubCommand_Common_ListPresets(IPlayer player, string[] args)
@@ -660,15 +663,16 @@ namespace Oxide.Plugins
 
             ushort maxAllowedSockets = GetPlayerMaxAllowedCarSockets(player.Id);
 
-            var chatMessages = new List<string> { GetMessage(player, "Command.Common.List") };
-
             var presetList = pluginData.Presets.Where(p => p.NumSockets <= maxAllowedSockets).ToList();
             presetList.Sort(SortPresetNames);
 
-            foreach (var preset in presetList)
-                chatMessages.Add(GetMessage(player, "Command.List.Item", preset.Name, preset.NumSockets));
+            var sb = new StringBuilder();
+            sb.AppendLine(GetMessage(player, "Command.Common.List"));
 
-            player.Reply(string.Join("\n", chatMessages));
+            foreach (var preset in presetList)
+                sb.AppendLine(GetMessage(player, "Command.List.Item", preset.Name, preset.NumSockets));
+
+            player.Reply(sb.ToString());
         }
 
         private void SubCommand_SavePreset(IPlayer player, string[] args)
@@ -836,11 +840,11 @@ namespace Oxide.Plugins
 
                 MaybePlayCarRepairEffects(car);
 
-                var chatMessages = new List<String>() { GetMessage(player, "Command.LoadPreset.Success", preset.Name) };
+                var chatMessages = new List<string>() { GetMessage(player, "Command.LoadPreset.Success", preset.Name) };
                 if (wereExtraParts)
                     chatMessages.Add(GetMessage(player, "Generic.Info.PartsRecovered"));
 
-                player.Reply(String.Join(" ", chatMessages));
+                player.Reply(string.Join(" ", chatMessages));
             });
         }
 
@@ -1020,7 +1024,7 @@ namespace Oxide.Plugins
         {
             if (FindPlayerCar(player) == null) return true;
 
-            var messages = new List<String> { GetMessage(player, "Command.Spawn.Error.CarAlreadyExists") };
+            var messages = new List<string> { GetMessage(player, "Command.Spawn.Error.CarAlreadyExists") };
             if (permission.UserHasPermission(player.Id, PermissionFetch))
                 messages.Add(GetMessage(player, "Command.Spawn.Error.CarAlreadyExists.Help"));
 
