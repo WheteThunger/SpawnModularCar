@@ -127,7 +127,6 @@ Misc:
 - `FreshWaterAmount` -- The amount of fresh water to add to each of the car's tanker modules when spawning. Only applies if the player has the `spawnmodularcar.autofilltankers` permission and has the AutoFillTankers setting on. Defaults to `-1` which represents maximum stack size. Note: If for some reason the car has multiple tankers (i.e., no other modules), this amount will be added to each one.
 - `FuelAmount` -- The amount of low grade fuel to add to the fuel tank when spawning. Only applies if the player has the `spawnmodularcar.autofuel` permission. When fixing the car or loading a preset, only the amount missing will be added to reach this minimum target value. Defaults to `-1` which represents maximum stack size.
 - `MaxPresetsPerPlayer` -- The maximum number of module configuration presets each player is allowed to save.
-- `PreventEditingWhileCodeLockedOut` (`true` or `false`) -- Whether to prevent players from editing the vehicle on a lift when they are not authorized to the car's code lock. Authorized players can still edit the vehicle regardless.
 
 ### Server presets
 
@@ -187,6 +186,7 @@ Here are all of the available options you can define per preset. Most default to
   "Generic.Setting.On": "<color=yellow>ON</color>",
   "Generic.Setting.Off": "<color=#bbb>OFF</color>",
   "Generic.Error.NoPermission": "You don't have permission to use this command.",
+  "Generic.Error.LocationRestricted": "Error: Cannot do that here.",
   "Generic.Error.BuildingBlocked": "Error: Cannot do that while building blocked.",
   "Generic.Error.NoPresets": "You don't have any saved presets.",
   "Generic.Error.NoCommonPresets": "There are no common presets.",
@@ -199,7 +199,6 @@ Here are all of the available options you can define per preset. Most default to
   "Generic.Error.PresetMultipleMatches": "Error: Multiple presets found matching <color=yellow>{0}</color>. Use <color=yellow>mycar list</color> to view your presets.",
   "Generic.Error.PresetAlreadyTaken": "Error: Preset <color=yellow>{0}</color> is already taken.",
   "Generic.Error.PresetNameLength": "Error: Preset name may not be longer than {0} characters.",
-  "Generic.Error.CarLocked": "That vehicle is locked.",
   "Generic.Info.CarDestroyed": "Your modular car was destroyed.",
   "Generic.Info.PartsRecovered": "Recovered engine components were added to your inventory or dropped in front of you.",
   "Command.Spawn.Error.SocketSyntax": "Syntax: <color=yellow>mycar <2|3|4></color>",

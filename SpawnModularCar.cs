@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using Oxide.Core;
 using Oxide.Core.Libraries.Covalence;
+using Oxide.Core.Plugins;
 using Rust.Modular;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,11 +13,14 @@ using System.Text;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "2.3.1")]
+    [Info("Spawn Modular Car", "WhiteThunder", "3.0.0")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
         #region Fields
+
+        [PluginReference]
+        private Plugin CarCodeLocks;
 
         private static SpawnModularCar pluginInstance;
 
@@ -55,15 +59,9 @@ namespace Oxide.Plugins
         private const string PrefabSockets4 = "assets/content/vehicles/modularcar/4module_car_spawned.entity.prefab";
 
         private const string ItemDropPrefab = "assets/prefabs/misc/item drop/item_drop.prefab";
-        private const string CodeLockPrefab = "assets/prefabs/locks/keypad/lock.code.prefab";
 
         private const string RepairEffectPrefab = "assets/bundled/prefabs/fx/build/promote_toptier.prefab";
         private const string TankerFilledEffectPrefab = "assets/prefabs/food/water jug/effects/water-jug-fill-container.prefab";
-        private const string CodeLockDeployedEffectPrefab = "assets/prefabs/locks/keypad/effects/lock-code-deploy.prefab";
-
-        private readonly Vector3 CodeLockPosition = new Vector3(-0.9f, 0.35f, -0.5f);
-
-        private const int CodeLockItemId = 1159991980;
 
         private readonly Dictionary<string, PlayerConfig> PlayerConfigsMap = new Dictionary<string, PlayerConfig>();
 
@@ -143,25 +141,6 @@ namespace Oxide.Plugins
             pluginData.UnregisterCar(userID);
         }
 
-        private void OnEntityKill(VehicleModuleSeating seatingModule)
-        {
-            var car = seatingModule.Vehicle as ModularCar;
-            if (car == null) return;
-
-            var codeLock = seatingModule.GetComponentInChildren<CodeLock>();
-            if (codeLock == null) return;
-            
-            codeLock.SetParent(null);
-            NextTick(() =>
-            {
-                var driverModule = car != null ? FindFirstDriverModule(car) : null;
-                if (driverModule != null)
-                    codeLock.SetParent(driverModule);
-                else
-                    codeLock.Kill();
-            });
-        }
-
         private void OnEntityMounted(BaseMountable mountable, BasePlayer player)
         {
             var car = (mountable as BaseVehicleMountPoint)?.GetVehicleParent() as ModularCar;
@@ -178,44 +157,6 @@ namespace Oxide.Plugins
 
             if (car.OwnerID == player.userID && car.CanRunEngines())
                 car.FinishStartingEngine();
-        }
-
-        object CanMountEntity(BasePlayer player, BaseVehicleMountPoint entity)
-        {
-            var car = entity?.GetVehicleParent() as ModularCar;
-            return CanPlayerInteractWithCar(player, car);
-        }
-
-        object CanLootEntity(BasePlayer player, StorageContainer container)
-        {
-            var parent = container.GetParentEntity();
-            var car = parent as ModularCar ?? (parent as VehicleModuleStorage)?.Vehicle as ModularCar;
-            return CanPlayerInteractWithCar(player, car);
-        }
-
-        object CanLootEntity(BasePlayer player, LiquidContainer container)
-        {
-            var car = (container.GetParentEntity() as VehicleModuleStorage)?.Vehicle as ModularCar;
-            return CanPlayerInteractWithCar(player, car);
-        }
-
-        object CanLootEntity(BasePlayer player, ModularCarGarage carLift)
-        {
-            if (!pluginConfig.PreventEditingWhileCodeLockedOut || !carLift.PlatformIsOccupied) return null;
-            return CanPlayerInteractWithCar(player, carLift.carOccupant);
-        }
-
-        private object CanPlayerInteractWithCar(BasePlayer player, ModularCar car)
-        {
-            if (car == null || !IsPlayerCar(car)) return null;
-
-            var codeLock = GetCarCodeLock(car);
-            if (codeLock == null || IsPlayerAuthorizedToCodeLock(player, codeLock)) return null;
-
-            PlayCodeLockDeniedEffect(codeLock);
-            player.ChatMessage(GetMessage(player.IPlayer, "Generic.Error.CarLocked"));
-
-            return false;
         }
 
         #endregion
@@ -448,7 +389,7 @@ namespace Oxide.Plugins
                 }
             }
 
-            var canCodeLock = permission.UserHasPermission(player.Id, PermissionAutoCodeLock);
+            var canCodeLock = CarCodeLocks != null && permission.UserHasPermission(player.Id, PermissionAutoCodeLock);
             var canKeyLock = permission.UserHasPermission(player.Id, PermissionAutoKeyLock);
             var canFillTankers = permission.UserHasPermission(player.Id, PermissionAutoFillTankers);
 
@@ -935,7 +876,7 @@ namespace Oxide.Plugins
 
         private void SubCommand_ToggleAutoCodeLock(IPlayer player, string[] args)
         {
-            if (!VerifyPermissionAny(player, PermissionAutoCodeLock)) return;
+            if (CarCodeLocks == null || !VerifyPermissionAny(player, PermissionAutoCodeLock)) return;
 
             var config = GetPlayerConfig(player);
             config.Settings.AutoCodeLock = !config.Settings.AutoCodeLock;
@@ -1262,7 +1203,9 @@ namespace Oxide.Plugins
                 FixCar(car, options.FuelAmount, options.EnginePartsTier);
                 MaybeFillTankerModules(car, options.FreshWaterAmount);
 
-                if (options.CodeLock) TryAddCodeLockForPlayer(car, player);
+                if (options.CodeLock && CarCodeLocks != null)
+                    CarCodeLocks.Call("API_DeployCodeLock", car, player);
+
                 if (options.KeyLock) TryAddKeyLockForPlayer(car, player);
 
                 onReady?.Invoke(car);
@@ -1283,32 +1226,6 @@ namespace Oxide.Plugins
                         car.TryAddModule(moduleItem, socketIndex);
                 }
             }
-        }
-
-        private CodeLock GetCarCodeLock(ModularCar car) =>
-            car.GetSlot(BaseEntity.Slot.Lock) as CodeLock;
-
-        private bool IsPlayerAuthorizedToCodeLock(BasePlayer player, CodeLock codeLock) =>
-            !codeLock.IsLocked() || 
-            codeLock.whitelistPlayers.Contains(player.userID) || 
-            codeLock.guestPlayers.Contains(player.userID);
-
-        private void PlayCodeLockDeniedEffect(CodeLock codeLock) =>
-            Effect.server.Run(codeLock.effectDenied.resourcePath, codeLock, 0, Vector3.zero, Vector3.forward);
-        
-        private VehicleModuleSeating FindFirstDriverModule(ModularCar car)
-        {
-            for (int socketIndex = 0; socketIndex < car.TotalSockets; socketIndex++)
-            {
-                BaseVehicleModule module;
-                if (car.TryGetModuleAt(socketIndex, out module))
-                {
-                    var seatingModule = module as VehicleModuleSeating;
-                    if (seatingModule != null && seatingModule.HasADriverSeat())
-                        return seatingModule;
-                }
-            }
-            return null;
         }
 
         private void EnableCarUnderwater(ModularCar car)
@@ -1573,46 +1490,6 @@ namespace Oxide.Plugins
 
         private bool ShouldTryAddCodeLockForPlayer(string userID) =>
             permission.UserHasPermission(userID, PermissionAutoCodeLock) && GetPlayerConfig(userID).Settings.AutoCodeLock;
-
-        private bool TryAddCodeLockForPlayer(ModularCar car, BasePlayer player)
-        {
-            if (!car.carLock.CanHaveALock()) return false;
-
-            var driverModule = FindFirstDriverModule(car);
-            if (driverModule == null) return false;
-
-            var codeLock = GameManager.server.CreateEntity(CodeLockPrefab, CodeLockPosition, Quaternion.identity) as CodeLock;
-            if (codeLock == null) return false;
-
-            codeLock.OwnerID = player.userID;
-            codeLock.SetParent(driverModule);
-            codeLock.Spawn();
-            car.SetSlot(BaseEntity.Slot.Lock, codeLock);
-
-            Effect.server.Run(CodeLockDeployedEffectPrefab, codeLock.transform.position);
-
-            // Allow other plugins to detect the lock being deployed (e.g., auto lock)
-            var codeLockItem = player.inventory.FindItemID(CodeLockItemId);
-            if (codeLockItem != null)
-            {
-                Interface.CallHook("OnItemDeployed", codeLockItem.GetHeldEntity(), car);
-            }
-            else
-            {
-                // Temporarily increase the player inventory capacity to ensure there is enough space
-                player.inventory.containerMain.capacity++;
-                var temporaryLockItem = ItemManager.CreateByItemID(CodeLockItemId);
-                if (player.inventory.GiveItem(temporaryLockItem))
-                {
-                    Interface.CallHook("OnItemDeployed", temporaryLockItem.GetHeldEntity(), car);
-                    temporaryLockItem.RemoveFromContainer();
-                }
-                temporaryLockItem.Remove();
-                player.inventory.containerMain.capacity--;
-            }
-
-            return true;
-        }
 
         private bool ShouldTryAddKeyLockForPlayer(string userID) =>
             permission.UserHasPermission(userID, PermissionAutoKeyLock) && GetPlayerConfig(userID).Settings.AutoKeyLock;
@@ -1944,9 +1821,6 @@ namespace Oxide.Plugins
 
             [JsonProperty("DisableSpawnLimitEnforcement")]
             public bool DisableSpawnLimitEnforcement = false;
-
-            [JsonProperty("PreventEditingWhileCodeLockedOut")]
-            public bool PreventEditingWhileCodeLockedOut = false;
         }
 
         internal class ServerPreset
@@ -2117,7 +1991,6 @@ namespace Oxide.Plugins
                 ["Generic.Error.PresetMultipleMatches"] = "Error: Multiple presets found matching <color=yellow>{0}</color>. Use <color=yellow>mycar list</color> to view your presets.",
                 ["Generic.Error.PresetAlreadyTaken"] = "Error: Preset <color=yellow>{0}</color> is already taken.",
                 ["Generic.Error.PresetNameLength"] = "Error: Preset name may not be longer than {0} characters.",
-                ["Generic.Error.CarLocked"] = "That vehicle is locked.",
 
                 ["Generic.Info.CarDestroyed"] = "Your modular car was destroyed.",
                 ["Generic.Info.PartsRecovered"] = "Recovered engine components were added to your inventory or dropped in front of you.",
