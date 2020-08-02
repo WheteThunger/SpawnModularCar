@@ -110,8 +110,7 @@ Misc:
   "FreshWaterAmount": -1,
   "FuelAmount": -1,
   "MaxPresetsPerPlayer": 10,
-  "Presets": [],
-  "PreventEditingWhileCodeLockedOut": false
+  "Presets": []
 }
 ```
 
