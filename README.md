@@ -138,13 +138,17 @@ Here is an example list of presets to get you started.
   {
     "Name": "LongChassis",
     "Options": {
-      "ModuleIDs": [0, 0, 0, 0]
+      "Modules": [0, 0, 0, 0]
     }
   },
   {
     "Name": "TourBus",
     "Options": {
-      "ModuleIDs": [170758448, 895374329, 1376065505],
+      "Modules": [
+        "vehicle.1mod.cockpit.with.engine",
+        "vehicle.2mod.passengers",
+        "vehicle.1mod.rear.seats"
+      ],
       "EnginePartsTier": 2,
       "FuelAmount": 100,
       "CodeLock": true
@@ -153,7 +157,11 @@ Here is an example list of presets to get you started.
   {
     "Name": "ArmoredCar",
     "Options": {
-      "ModuleIDs": [1559779253, 1874610722, 1874610722],
+      "Modules": [
+        "vehicle.1mod.engine",
+        "vehicle.1mod.cockpit.armored",
+        "vehicle.1mod.cockpit.armored"
+      ],
       "EnginePartsTier": 3,
       "FuelAmount": 500,
       "KeyLock": true
@@ -162,21 +170,25 @@ Here is an example list of presets to get you started.
   {
     "Name": "DoubleTanker",
     "Options": {
-      "ModuleIDs": [1186655046, 1186655046],
+      "Modules": [
+        "vehicle.2mod.fuel.tank",
+        "vehicle.2mod.fuel.tank"
+      ],
       "FreshWaterAmount": 50000
     }
   }
 ],
 ```
 
-Here are all of the available options you can define per preset. Most default to `0` or `false`.
+Here are all of the available options you can define per preset. The only required option is `Modules`. The rest default to `0` or `false`.
 
-- `ModuleIDs` -- List of module item ids that will be added to the car automatically. These ids can be found on item pages at [rustlabs.com](https://rustlabs.com/search=module). The number `0` represents an empty socket.
+- `Modules` -- List of module item ids or short names that will be added to the car automatically. The number `0` represents an empty socket. Item names and ids can be found on the [uMod item list page](https://umod.org/documentation/games/rust/definitions).
+  - Previously this field was named `ModuleIDs`. That name still works for backwards compatibility but it only accepts ids.
 - `CodeLock` (`true` or `false`) -- Whether to deploy a code lock to the car.
 - `KeyLock` (`true` or `false`) -- Whether to create a key lock on the car and add a matching key to the player's inventory.
-- `EnginePartsTier` (`0` - `3`) -- The quality of engine components to automatically add to all engine modules. Choosing `0` will not add any engine components.
-- `FuelAmount` -- The amount of fuel to put in the fuel tank.
-- `FreshWaterAmount` -- The amount of fresh water to add to each tanker module if applicable.
+- `EnginePartsTier` (`0` - `3`) -- The quality of engine components to automatically add to all engine modules (`0` for no engine components).
+- `FuelAmount` -- The amount of fuel to put in the fuel tank (`-1` for max).
+- `FreshWaterAmount` -- The amount of fresh water to add to each tanker module if applicable (`-1` for max).
 
 ## Localization
 
@@ -267,4 +279,111 @@ Here are all of the available options you can define per preset. Most default to
   "Command.Help.Section.OtherCommands": "<color=orange>--- Other commands ---</color>",
   "Command.Help.Give": "<color=yellow>givecar <player> <preset></color> - Spawn a car for the target player from the specified server preset"
 }
+```
+
+## Developer API
+
+#### API_SpawnPresetCar
+
+Plugins can call this API to spawn a modular car for a player with various options. Cars spawned this way are independent of `mycar`.
+
+```csharp
+ModularCar API_SpawnPresetCar(BasePlayer, Dictionary<string, object> options, Action<ModularCar> onReady)
+```
+
+Below is an example with all options provided, plus the optional callback:
+
+```csharp
+SpawnModularCar.Call("API_SpawnPresetCar", player, 
+    new Dictionary<string, object>
+    {
+        ["CodeLock"] = true,
+        ["KeyLock"] = false,
+        ["EnginePartsTier"] = 3,
+        ["FreshWaterAmount"] = 50000,
+        ["FuelAmount"] = 500,
+        ["Modules"] = new object[] {
+            "vehicle.1mod.cockpit.with.engine",
+            "vehicle.2mod.fuel.tank"
+        },
+    },
+    new Action<ModularCar>(car =>
+    {
+        // Example: Lock all engine containers
+        foreach (var module in car.AttachedModuleEntities)
+        {
+            var engineContainer = (module as VehicleModuleEngine)?.GetContainer();
+            if (engineContainer != null)
+                engineContainer.inventory.SetLocked(true);
+        }
+    }
+));
+```
+
+The available options (e.g., locks, fuel, water) are the same as for server presets. See that section for more details.
+
+The return value will be the `ModularCar` instance that was spawned, or `null` if it was unable to be spawned for some reason (such as a plugin blocking it with a hook).
+
+**Note:** If your plugin needs to interact with features of the car after spawning it, you should use the optional `onReady` callback to ensure the car's modules are fully spawned and the other features you requested are applied (e.g., locks, fuel, water). The `ModularCar` instance is only returned directly by the API in case you need to synchronously register the car for cooldowns or other purposes.
+
+## Hooks
+
+#### CanSpawnModularCar
+
+- Called when a player or a plugin tries to spawn a modular car.
+- Returning `false` will prevent the default behavior.
+- Returning `null` will result in the default behavior.
+
+```csharp
+object CanSpawnModularCar(BasePlayer player)
+```
+
+#### CanSpawnMyCar
+
+- Called when a player tries to spawn their car with any of the various `mycar` commands.
+- Returning `false` will prevent the default behavior.
+- Returning `null` will result in the default behavior.
+
+```csharp
+object CanSpawnMyCar(BasePlayer player)
+```
+
+#### CanFetchMyCar
+
+- Called when a player tries to fetch their car with `mycar fetch`.
+- Returning `false` will prevent the default behavior.
+- Returning `null` will result in the default behavior.
+
+```csharp
+object CanFetchMyCar(BasePlayer player, ModularCar car)
+```
+
+#### CanFixMyCar
+
+- Called when a player tries to fix their car with `mycar fix`.
+- Returning `false` will prevent the default behavior.
+- Returning `null` will result in the default behavior.
+
+```csharp
+object CanFixMyCar(BasePlayer player, ModularCar car)
+```
+
+#### CanLoadMyCarPreset
+
+- Called when a player tries to load a preset onto their existing car with any of the various `mycar` commands.
+- Returning `false` will prevent the default behavior.
+- Returning `null` will result in the default behavior.
+
+```csharp
+object CanLoadMyCarPreset(BasePlayer player, ModularCar car)
+```
+
+#### CanDestroyMyCar
+
+- Called when a player tries to despawn their car with `mycar destroy`.
+- Returning `false` will prevent the default behavior.
+- Returning `null` will result in the default behavior.
+
+```csharp
+object CanDestroyMyCar(BasePlayer player, ModularCar car)
 ```
