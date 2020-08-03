@@ -1,10 +1,12 @@
 **SpawnModularCar** allows players to spawn modular cars. Each player can have only one car at a time.
 
-## Recent breaking changes
+## Recent backwards-incompatible changes
+
+For all changes, see the updates tab on uMod.
 
 ##### 3.0.0
-- The auto code lock feature now requires the [Modular Car Code Locks](https://umod.org/plugins/modular-car-code-locks) plugin to work.
-- Removed the `PreventEditingWhileCodeLockedOut` configuration option since the car code locks plugin has a similar setting.
+- The auto code lock feature now requires the [Modular Car Code Locks](https://umod.org/plugins/modular-car-code-locks) plugin to be installed to work. No configuration required.
+  - Removed the `PreventEditingWhileCodeLockedOut` configuration option since the car code locks plugin has a similar setting.
 
 ##### 2.0.0
 - Automatic fueling now requires the `spawnmodularcar.autofuel` permission.
