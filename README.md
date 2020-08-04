@@ -1,4 +1,8 @@
-**SpawnModularCar** allows players to spawn modular cars. Each player can have only one car at a time.
+**SpawnModularCar** allows players to spawn modular cars.
+
+- Each player can have one car at a time using `mycar`.
+- Multiple types of presets are supported, including personal presets.
+- API and an admin/server command allow spawning unlimited cars with a variety of options.
 
 ## Recent backwards-incompatible changes
 
