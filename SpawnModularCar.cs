@@ -13,7 +13,7 @@ using System.Text;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "3.1.0")]
+    [Info("Spawn Modular Car", "WhiteThunder", "4.0.0")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {

@@ -8,12 +8,25 @@
 
 For all changes, see the updates tab on uMod.
 
+##### 4.0.0
+- Removed underwater driving. Similar functionality is available in the [Underwater Vehicles](https://umod.org/plugins/underwater-vehicles) plugin.
+- Removed the `DisableSpawnLimitEnforcement` configuration option. It was broken anyway. You can get the same feature (but working) in the [Disable Pop Limit Enforcement](https://umod.org/plugins/disable-pop-limit-enforcement) plugin.
+- (Technically backwards compatible) Integrated with the [Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks) plugin for deploying code locks (no configuration required). The [Modular Car Code Locks](https://umod.org/plugins/modular-car-code-locks) plugin is still supported but integration with it will be removed in 5.0.0 of this plugin, so please migrate to Vehicle Deployed Locks at your earliest convenience. If it's missing any features from Modular Car Code Locks that you consider critical, please open a thread on the Vehicle Deployed Locks help forum to request support.
+
 ##### 3.0.0
 - The auto code lock feature now requires the [Modular Car Code Locks](https://umod.org/plugins/modular-car-code-locks) plugin to be installed to work. No configuration required.
   - Removed the `PreventEditingWhileCodeLockedOut` configuration option since the car code locks plugin has a similar setting.
 
 ##### 2.0.0
 - Automatic fueling now requires the `spawnmodularcar.autofuel` permission.
+
+## Recommended related plugins
+- [Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks) - Deploy code locks or key locks to vehicles. Integrates with this plugin to allow automatically deploying code locks to cars spawned by privileged players
+- [Disable Pop Limit Enforcement](https://umod.org/plugins/disable-pop-limit-enforcement) - Prevent spawned cars from disappearing when loading a save
+- [Engine Parts Durability](https://umod.org/plugins/engine-parts-durability) - Reduce or disable engine part durability (so they no longer take damage when the car does)
+- [Larger Car Storage](https://umod.org/plugins/larger-car-storage) - Increase capacity of storage modules on cars owned by privileged players
+- [Vehicle Decay Protection](https://umod.org/plugins/vehicle-decay-protection) - Reduce or disable vehicle decay in various situations
+- [Craft Car Chassis](https://umod.org/plugins/craft-car-chassis) - Craft a blank chassis at a car lift
 
 ## Commands
 
