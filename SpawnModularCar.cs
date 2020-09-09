@@ -44,7 +44,6 @@ namespace Oxide.Plugins
         private const string PermissionAutoFuel = "spawnmodularcar.autofuel";
         private const string PermissionAutoCodeLock = "spawnmodularcar.autocodelock";
         private const string PermissionAutoKeyLock = "spawnmodularcar.autokeylock";
-        private const string PermissionDriveUnderwater = "spawnmodularcar.underwater";
         private const string PermissionAutoStartEngine = "spawnmodularcar.autostartengine";
         private const string PermissionAutoFillTankers = "spawnmodularcar.autofilltankers";
         private const string PermissionGiveCar = "spawnmodularcar.givecar";
@@ -95,7 +94,6 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermissionAutoFuel, this);
             permission.RegisterPermission(PermissionAutoCodeLock, this);
             permission.RegisterPermission(PermissionAutoKeyLock, this);
-            permission.RegisterPermission(PermissionDriveUnderwater, this);
             permission.RegisterPermission(PermissionAutoStartEngine, this);
             permission.RegisterPermission(PermissionAutoFillTankers, this);
             permission.RegisterPermission(PermissionGiveCar, this);
@@ -145,15 +143,6 @@ namespace Oxide.Plugins
         {
             var car = (mountable as BaseVehicleMountPoint)?.GetVehicleParent() as ModularCar;
             if (car == null || !pluginData.playerCars.ContainsValue(car.net.ID)) return;
-
-            if (car.waterSample.transform.parent != null &&
-                car.OwnerID != 0 &&
-                permission.UserHasPermission(car.OwnerID.ToString(), PermissionDriveUnderwater))
-            {
-                // Water sample needs to be updated to enable underwater driving
-                // This is necessary because sometimes the water sample is altered, such as on server restart
-                EnableCarUnderwater(car);
-            }
 
             if (car.OwnerID == player.userID && car.CanRunEngines())
                 car.FinishStartingEngine();
@@ -1323,9 +1312,6 @@ namespace Oxide.Plugins
 
             if (shouldTrackCar)
             {
-                if (permission.UserHasPermission(player.UserIDString, PermissionDriveUnderwater))
-                    EnableCarUnderwater(car);
-
                 pluginData.RegisterCar(player.UserIDString, car);
                 SpawnCarCooldowns.UpdateLastUsedForPlayer(player.UserIDString);
             }
@@ -1360,12 +1346,6 @@ namespace Oxide.Plugins
                         car.TryAddModule(moduleItem, socketIndex);
                 }
             }
-        }
-
-        private void EnableCarUnderwater(ModularCar car)
-        {
-            car.waterSample.transform.SetParent(null);
-            car.waterSample.transform.SetPositionAndRotation(Vector3.up * 1000, new Quaternion());
         }
 
         private void UpdateCarModules(ModularCar car, int[] moduleIDs)

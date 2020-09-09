@@ -101,7 +101,6 @@ Misc:
 - `spawnmodularcar.autocodelock` -- Required to use the automatic code lock feature (i.e., `mycar autocodelock`).
 - `spawnmodularcar.autokeylock` -- Required to use the automatic key lock feature (i.e., `mycar autokeylock`).
 - `spawnmodularcar.autofilltankers` - Required to use automatic filling of tanker modules (i.e. `mycar autofilltankers`).
-- `spawnmodularcar.underwater` -- Allows your car to be driven underwater (scuba gear is recommended). Note: Underwater driving is noticeably slower than on land.
 - `spawnmodularcar.autostartengine` -- Instantly start your car's engine when you get in.
 
 ## Configuration
