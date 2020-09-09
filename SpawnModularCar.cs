@@ -20,7 +20,7 @@ namespace Oxide.Plugins
         #region Fields
 
         [PluginReference]
-        private Plugin CarCodeLocks;
+        private Plugin CarCodeLocks, VehicleDeployedLocks;
 
         private static SpawnModularCar pluginInstance;
 
@@ -453,7 +453,7 @@ namespace Oxide.Plugins
                 }
             }
 
-            var canCodeLock = CarCodeLocks != null && permission.UserHasPermission(player.Id, PermissionAutoCodeLock);
+            var canCodeLock = GetLockPlugin() != null && permission.UserHasPermission(player.Id, PermissionAutoCodeLock);
             var canKeyLock = permission.UserHasPermission(player.Id, PermissionAutoKeyLock);
             var canFillTankers = permission.UserHasPermission(player.Id, PermissionAutoFillTankers);
 
@@ -947,7 +947,7 @@ namespace Oxide.Plugins
 
         private void SubCommand_ToggleAutoCodeLock(IPlayer player, string[] args)
         {
-            if (CarCodeLocks == null || !VerifyPermissionAny(player, PermissionAutoCodeLock)) return;
+            if (GetLockPlugin() == null || !VerifyPermissionAny(player, PermissionAutoCodeLock)) return;
 
             var config = GetPlayerConfig(player);
             config.Settings.AutoCodeLock = !config.Settings.AutoCodeLock;
@@ -1315,8 +1315,15 @@ namespace Oxide.Plugins
                 FixCar(car, options.FuelAmount, options.EnginePartsTier);
                 MaybeFillTankerModules(car, options.FreshWaterAmount);
 
-                if (options.CodeLock && CarCodeLocks != null)
-                    CarCodeLocks.Call("API_DeployCodeLock", car, player);
+                if (options.CodeLock)
+                {
+                    var lockPlugin = GetLockPlugin();
+                    if (lockPlugin != null)
+                    {
+                        // both VehicleDeployedLocks and CarCodeLocks have the same API signature
+                        lockPlugin.Call("API_DeployCodeLock", car, player);
+                    }
+                }
 
                 if (options.KeyLock) TryAddKeyLockForPlayer(car, player);
 
@@ -1740,6 +1747,12 @@ namespace Oxide.Plugins
         }
 
         private int Clamp(int x, int min, int max) => Math.Min(max, Math.Max(min, x));
+
+        #endregion
+
+        #region Helper Methods - Misc
+
+        private Plugin GetLockPlugin() => VehicleDeployedLocks ?? CarCodeLocks;
 
         #endregion
 
