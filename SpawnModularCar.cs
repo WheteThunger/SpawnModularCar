@@ -109,12 +109,6 @@ namespace Oxide.Plugins
             LoadPresetCooldowns = new CooldownManager(pluginConfig.Cooldowns.LoadPresetSeconds);
         }
 
-        private void OnServerInitialized()
-        {
-            if (pluginConfig.DisableSpawnLimitEnforcement)
-                DisableSpawnLimitEnforcement();
-        }
-
         private void Unload()
         {
             pluginInstance = null;
@@ -1683,25 +1677,6 @@ namespace Oxide.Plugins
                 Effect.server.Run(RepairEffectPrefab, car.transform.position);
         }
 
-        private void DisableSpawnLimitEnforcement()
-        {
-            var spawnHandler = SingletonComponent<SpawnHandler>.Instance;
-            foreach (var population in spawnHandler.AllSpawnPopulations)
-            {
-                if (population.name == "ModularCar.Population")
-                {
-                    if (population.EnforcePopulationLimits)
-                    {
-                        population.EnforcePopulationLimits = false;
-                        Puts("Disabled spawn limit enforcement for: {0}", population.name);
-                    }
-                    else
-                        Puts("Spawn limit enforcement already disabled for: {0}", population.name);
-                    break;
-                }
-            }
-        }
-
         private int[] ParseModules(object[] moduleArray)
         {
             var moduleIDList = new List<int>();
@@ -1994,9 +1969,6 @@ namespace Oxide.Plugins
 
             [JsonProperty("MaxPresetsPerPlayer")]
             public int MaxPresetsPerPlayer = 10;
-
-            [JsonProperty("DisableSpawnLimitEnforcement")]
-            public bool DisableSpawnLimitEnforcement = false;
         }
 
         internal class ServerPreset
