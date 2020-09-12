@@ -1197,6 +1197,7 @@ namespace Oxide.Plugins
         private Vector3 GetIdealCarPosition(BasePlayer player)
         {
             Vector3 forward = player.GetNetworkRotation() * Vector3.forward;
+            forward.y = 0;
             Vector3 position = player.transform.position + forward.normalized * 3f;
             position.y = player.transform.position.y + 1f;
             return position;
