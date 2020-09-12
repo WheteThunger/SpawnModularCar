@@ -13,7 +13,7 @@ using System.Text;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "4.0.0")]
+    [Info("Spawn Modular Car", "WhiteThunder", "4.0.1")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -610,8 +610,20 @@ namespace Oxide.Plugins
             if (pluginConfig.DismountPlayersOnFetch)
                 DismountAllPlayersFromCar(car);
 
+            // Temporarily clear max angular velocity to prevent the car from unexpectedly spinning when teleporting really far
+            var maxAngularVelocity = car.rigidBody.maxAngularVelocity;
+            car.rigidBody.maxAngularVelocity = 0;
+
             car.transform.SetPositionAndRotation(GetIdealCarPosition(basePlayer), GetIdealCarRotation(basePlayer));
             car.SetVelocity(Vector3.zero);
+            car.SetAngularVelocity(Vector3.zero);
+            car.UpdateNetworkGroup();
+            car.SendNetworkUpdateImmediate();
+            timer.Once(1f, () =>
+            {
+                if (car != null)
+                    car.rigidBody.maxAngularVelocity = maxAngularVelocity;
+            });
 
             FetchCarCooldowns.UpdateLastUsedForPlayer(player.Id);
             ReplyToPlayer(player, "Command.Fetch.Success");
