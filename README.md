@@ -4,21 +4,12 @@
 - Multiple types of presets are supported, including personal presets.
 - API and an admin/server command allow spawning unlimited cars with a variety of options.
 
-## Recent backwards-incompatible changes
+[Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks)
 
-For all changes, see the updates tab on uMod.
+## Upcoming backwards-incompatible changes
 
-##### 4.0.0
-- Removed underwater driving. Similar functionality is available in the [Underwater Vehicles](https://umod.org/plugins/underwater-vehicles) plugin.
-- Removed the `DisableSpawnLimitEnforcement` configuration option. It was broken anyway. You can get the same feature (but working) in the [Disable Pop Limit Enforcement](https://umod.org/plugins/disable-pop-limit-enforcement) plugin.
-- (Technically backwards compatible) Integrated with the [Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks) plugin for deploying code locks (no configuration required). The [Modular Car Code Locks](https://umod.org/plugins/modular-car-code-locks) plugin is still supported but integration with it will be removed in 5.0.0 of this plugin, so please migrate to Vehicle Deployed Locks at your earliest convenience. If it's missing any features from Modular Car Code Locks that you consider critical, please open a thread on the Vehicle Deployed Locks help forum to request support.
-
-##### 3.0.0
-- The auto code lock feature now requires the [Modular Car Code Locks](https://umod.org/plugins/modular-car-code-locks) plugin to be installed to work. No configuration required.
-  - Removed the `PreventEditingWhileCodeLockedOut` configuration option since the car code locks plugin has a similar setting.
-
-##### 2.0.0
-- Automatic fueling now requires the `spawnmodularcar.autofuel` permission.
+##### 5.0.0
+- Planning to remove compatibility with [Modular Car Code Locks](https://umod.org/plugins/modular-car-code-locks). This means that deploying code locks to spawned cars will no longer work unless you have [Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks) installed, so please migrate to that if you use the code lock feature. The plugins are very similar so migrating should be easy.
 
 ## Recommended related plugins
 - [Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks) - Deploy code locks or key locks to vehicles. Integrates with this plugin to allow automatically deploying code locks to cars spawned by privileged players
