@@ -1589,16 +1589,10 @@ namespace Oxide.Plugins
             var lift = RaycastHitEx.GetEntity(hitInfo) as ModularCarGarage;
             if (lift == null || lift.carOccupant != car) return false;
 
-            // Sometimes the lift grabs the car back after it's released, so we check and re-release a few times
-            // This avoids an infinite loop where the car is fetched back onto the same lift
-            Timer timerCheckOccupied = null;
-            timerCheckOccupied = timer.Repeat(0.1f, 5, () =>
-            {
-                if (lift != null && car != null && lift.carOccupant == car)
-                    lift.ReleaseOccupant();
-                else
-                    timerCheckOccupied.Destroy();
-            });
+            // Disable the lift for a bit, to prevent it from grabbing the car back
+            lift.enabled = false;
+            lift.ReleaseOccupant();
+            lift.Invoke(() => lift.enabled = true, 0.5f);
 
             return true;
         }
