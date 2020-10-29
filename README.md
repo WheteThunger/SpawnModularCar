@@ -4,8 +4,6 @@
 - Multiple types of presets are supported, including personal presets.
 - API and an admin/server command allow spawning unlimited cars with a variety of options.
 
-[Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks)
-
 ## Upcoming backwards-incompatible changes
 
 ##### 5.0.0
