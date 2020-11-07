@@ -13,7 +13,7 @@ using System.Text;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "4.0.1")]
+    [Info("Spawn Modular Car", "WhiteThunder", "4.0.2")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -133,13 +133,16 @@ namespace Oxide.Plugins
             pluginData.UnregisterCar(userID);
         }
 
-        private void OnEntityMounted(BaseMountable mountable, BasePlayer player)
+        private object OnEngineStart(ModularCar car)
         {
-            var car = (mountable as BaseVehicleMountPoint)?.GetVehicleParent() as ModularCar;
-            if (car == null || !pluginData.playerCars.ContainsValue(car.net.ID)) return;
+            if (car == null ||
+                car.OwnerID == 0 ||
+                !pluginData.playerCars.ContainsValue(car.net.ID) ||
+                !permission.UserHasPermission(car.OwnerID.ToString(), PermissionAutoStartEngine))
+                return null;
 
-            if (car.OwnerID == player.userID && car.CanRunEngines())
-                car.FinishStartingEngine();
+            car.FinishStartingEngine();
+            return false;
         }
 
         #endregion

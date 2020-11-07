@@ -103,7 +103,7 @@ Misc:
 - `spawnmodularcar.autocodelock` -- Required to use the automatic code lock feature (i.e., `mycar autocodelock`).
 - `spawnmodularcar.autokeylock` -- Required to use the automatic key lock feature (i.e., `mycar autokeylock`).
 - `spawnmodularcar.autofilltankers` - Required to use automatic filling of tanker modules (i.e. `mycar autofilltankers`).
-- `spawnmodularcar.autostartengine` -- Instantly start your car's engine when you get in.
+- `spawnmodularcar.autostartengine` -- Start your car's engine instantly.
 
 ## Configuration
 
