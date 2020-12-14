@@ -11,7 +11,6 @@
 
 ## Recommended related plugins
 - [Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks) - Deploy code locks or key locks to vehicles. Integrates with this plugin to allow automatically deploying code locks to cars spawned by privileged players
-- [Disable Pop Limit Enforcement](https://umod.org/plugins/disable-pop-limit-enforcement) - Prevent spawned cars from disappearing when loading a save
 - [Engine Parts Durability](https://umod.org/plugins/engine-parts-durability) - Reduce or disable engine part durability (so they no longer take damage when the car does)
 - [No Engine Parts](https://umod.org/plugins/no-engine-parts) - Allow car engines to work without engine parts. Supports multiple use cases, including super speed
 - [Larger Car Storage](https://umod.org/plugins/larger-car-storage) - Increase capacity of storage modules on cars owned by privileged players
