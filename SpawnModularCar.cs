@@ -573,9 +573,11 @@ namespace Oxide.Plugins
 
             ModularCar car;
             if (!VerifyHasCar(player, out car) ||
-                !VerifyCarIsNotDead(player, car) ||
                 !VerifyOffCooldown(FixCarCooldowns, player) ||
                 FixMyCarWasBlocked(player.Object as BasePlayer, car)) return;
+
+            if (car.IsDead())
+                ReviveCar(car);
 
             FixCar(car, GetPlayerAllowedFuel(player.Id), GetPlayerEnginePartsTier(player.Id));
             MaybeFillTankerModules(car, GetPlayerAllowedFreshWater(player.Id));
@@ -815,7 +817,6 @@ namespace Oxide.Plugins
             ModularCar car;
 
             if (!VerifyHasCar(player, out car) ||
-                !VerifyCarIsNotDead(player, car) ||
                 !VerifyCarNotOccupied(player, car) ||
                 !VerifyOffCooldown(LoadPresetCooldowns, player) ||
                 LoadMyCarPresetWasBlocked(basePlayer, car)) return;
@@ -835,6 +836,9 @@ namespace Oxide.Plugins
                 ReplyToPlayer(player, "Command.LoadPreset.Error.SocketCount", preset.Name, presetNumSockets, car.TotalSockets);
                 return;
             }
+
+            if (car.IsDead())
+                ReviveCar(car);
 
             var wasEngineOn = car.IsOn();
             var enginePartsTier = GetPlayerEnginePartsTier(player.Id);
@@ -1116,16 +1120,6 @@ namespace Oxide.Plugins
             if (car.AnyMounted() || car.AttachedModuleEntities.Any(module => module.children.Any(child => child is BasePlayer)))
             {
                 ReplyToPlayer(player, "Generic.Error.CarOccupied");
-                return false;
-            }
-            return true;
-        }
-
-        private bool VerifyCarIsNotDead(IPlayer player, ModularCar car)
-        {
-            if (car.IsDead())
-            {
-                ReplyToPlayer(player, "Generic.Error.CarDead");
                 return false;
             }
             return true;
@@ -1563,6 +1557,15 @@ namespace Oxide.Plugins
                     engineModule.RefreshPerformanceStats(engineStorage);
                 }
             }
+        }
+
+        private void ReviveCar(ModularCar car)
+        {
+            car.lifestate = BaseCombatEntity.LifeState.Alive;
+            car.repair.enabled = true;
+
+            foreach (var module in car.AttachedModuleEntities)
+                module.repair.enabled = true;
         }
 
         private void AddOrRestoreFuel(ModularCar car, int specifiedFuelAmount)
@@ -2162,7 +2165,6 @@ namespace Oxide.Plugins
                 ["Generic.Error.NoCommonPresets"] = "There are no common presets.",
                 ["Generic.Error.CarNotFound"] = "Error: You need a car to do that.",
                 ["Generic.Error.CarOccupied"] = "Error: Cannot do that while your car is occupied.",
-                ["Generic.Error.CarDead"] = "Error: Your car is dead.",
                 ["Generic.Error.Cooldown"] = "Please wait <color=yellow>{0}s</color> and try again.",
                 ["Generic.Error.NoPermissionToPresetSocketCount"] = "Error: You don't have permission to use preset <color=yellow>{0}</color> because it requires <color=yellow>{1}</color> sockets.",
                 ["Generic.Error.PresetNotFound"] = "Error: Preset <color=yellow>{0}</color> not found.",

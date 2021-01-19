@@ -36,7 +36,7 @@ When a modular car is spawned, it will be at full health. Additionally, dependin
 
 ### Other commands
 
-- `mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoCodeLock` or `AutoKeyLock` setting. Engine components will also be repaired. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, missing engine components are added, and lower quality components are replaced with the maximum quality you are allowed. Note: This command cannot restore your car if it is "dead" (0 health on every module).
+- `mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoCodeLock` or `AutoKeyLock` setting. Engine components will also be repaired. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, missing engine components are added, and lower quality components are replaced with the maximum quality you are allowed.
 - `mycar fetch` -- Teleport your car to you in an upright position.
 - `mycar destroy` -- Destroy your car, allowing you to spawn a new one.
   - Non-empty storage modules will drop a bag with their items next to where the car was located.
@@ -218,7 +218,6 @@ Here are all of the available options you can define per preset. The only requir
   "Generic.Error.NoCommonPresets": "There are no common presets.",
   "Generic.Error.CarNotFound": "Error: You need a car to do that.",
   "Generic.Error.CarOccupied": "Error: Cannot do that while your car is occupied.",
-  "Generic.Error.CarDead": "Error: Your car is dead.",
   "Generic.Error.Cooldown": "Please wait <color=yellow>{0}s</color> and try again.",
   "Generic.Error.NoPermissionToPresetSocketCount": "Error: You don't have permission to use preset <color=yellow>{0}</color> because it requires <color=yellow>{1}</color> sockets.",
   "Generic.Error.PresetNotFound": "Error: Preset <color=yellow>{0}</color> not found.",
