@@ -1424,9 +1424,13 @@ namespace Oxide.Plugins
 
         private void AddUpgradeOrRepairEngineParts(EngineStorage engineStorage, int desiredTier)
         {
-            if (engineStorage.inventory == null) return;
-
             var inventory = engineStorage.inventory;
+            if (inventory == null) return;
+
+            // Ignore if the engine storage is locked, since it must be controlled by another plugin.
+            if (inventory.IsLocked())
+                return;
+
             for (var i = 0; i < inventory.capacity; i++)
             {
                 var item = inventory.GetSlot(i);
@@ -1471,9 +1475,15 @@ namespace Oxide.Plugins
                 var engineStorage = (module as VehicleModuleEngine)?.GetContainer() as EngineStorage;
                 if (engineStorage == null) continue;
 
-                for (var i = 0; i < engineStorage.inventory.capacity; i++)
+                var inventory = engineStorage.inventory;
+
+                // Ignore if the engine storage is locked, since it must be controlled by another plugin.
+                if (inventory.IsLocked())
+                    continue;
+
+                for (var i = 0; i < inventory.capacity; i++)
                 {
-                    var item = engineStorage.inventory.GetSlot(i);
+                    var item = inventory.GetSlot(i);
                     if (item == null) continue;
 
                     var component = item.info.GetComponent<ItemModEngineItem>();
