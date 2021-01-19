@@ -33,7 +33,7 @@ namespace Oxide.Plugins
         private const string PermissionSpawnSockets2 = "spawnmodularcar.spawn.2";
         private const string PermissionSpawnSockets3 = "spawnmodularcar.spawn.3";
         private const string PermissionSpawnSockets4 = "spawnmodularcar.spawn.4";
-        
+
         private const string PermissionEnginePartsTier1 = "spawnmodularcar.engineparts.tier1";
         private const string PermissionEnginePartsTier2 = "spawnmodularcar.engineparts.tier2";
         private const string PermissionEnginePartsTier3 = "spawnmodularcar.engineparts.tier3";
@@ -123,7 +123,7 @@ namespace Oxide.Plugins
         private void OnEntityKill(ModularCar car)
         {
             if (!IsPlayerCar(car)) return;
-            
+
             string userID = pluginData.playerCars.FirstOrDefault(x => x.Value == car.net.ID).Key;
             BasePlayer player = BasePlayer.Find(userID);
 
@@ -649,7 +649,7 @@ namespace Oxide.Plugins
             MaybeRemoveMatchingKeysFromPlayer(basePlayer, car);
 
             var extractedEngineParts = ExtractEnginePartsAboveTierAndDeleteRest(car, GetPlayerEnginePartsTier(player.Id));
-            
+
             car.Kill();
 
             if (extractedEngineParts.Count > 0)
@@ -717,7 +717,7 @@ namespace Oxide.Plugins
 
             var presetManager = GetPlayerConfig(player);
             if (!VerifyNoMatchingPreset(player, presetManager, presetNameArg)) return;
-            
+
             if (presetManager.Presets.Count >= pluginConfig.MaxPresetsPerPlayer)
             {
                 ReplyToPlayer(player, "Command.SavePreset.Error.TooManyPresets", pluginConfig.MaxPresetsPerPlayer);
@@ -742,7 +742,7 @@ namespace Oxide.Plugins
             ModularCar car;
             if (!VerifyHasCar(player, out car)) return;
             if (!VerifyNoMatchingPreset(player, pluginData, presetNameArg)) return;
-            
+
             SavePreset(player, pluginData, presetNameArg, car);
         }
 
@@ -865,7 +865,7 @@ namespace Oxide.Plugins
                 if (wasEngineOn && !car.IsOn() && car.CanRunEngines()) car.FinishStartingEngine();
 
                 MaybeFillTankerModules(car, GetPlayerAllowedFreshWater(player.Id));
-                
+
                 if (car.carLock.HasALock && !car.carLock.CanHaveALock())
                 {
                     MaybeRemoveMatchingKeysFromPlayer(basePlayer, car);
@@ -1367,7 +1367,7 @@ namespace Oxide.Plugins
             {
                 var desiredItemID = moduleIDs[socketIndex];
                 var existingItem = car.Inventory.ModuleContainer.GetSlot(socketIndex);
-                
+
                 if (existingItem != null && existingItem.info.itemid != desiredItemID)
                 {
                     existingItem.RemoveFromContainer();
@@ -1425,7 +1425,7 @@ namespace Oxide.Plugins
         private void AddUpgradeOrRepairEngineParts(EngineStorage engineStorage, int desiredTier)
         {
             if (engineStorage.inventory == null) return;
-            
+
             var inventory = engineStorage.inventory;
             for (var i = 0; i < inventory.capacity; i++)
             {
@@ -1676,7 +1676,7 @@ namespace Oxide.Plugins
                 liquidContainer.inventory.AddItem(defaultItem, targetAmount);
                 return true;
             }
-            
+
             if (existingItem.amount >= targetAmount)
                 // Nothing added in this case
                 return false;
