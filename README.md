@@ -4,11 +4,6 @@
 - Multiple types of presets are supported, including personal presets.
 - API and an admin/server command allow spawning unlimited cars with a variety of options.
 
-## Upcoming backwards-incompatible changes
-
-##### 5.0.0
-- Planning to remove compatibility with [Modular Car Code Locks](https://umod.org/plugins/modular-car-code-locks). This means that deploying code locks to spawned cars will no longer work unless you have [Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks) installed, so please migrate to that if you use the code lock feature. The plugins are very similar so migrating should be easy.
-
 ## Recommended related plugins
 - [Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks) - Deploy code locks or key locks to vehicles. Integrates with this plugin to allow automatically deploying code locks to cars spawned by privileged players
 - [Engine Parts Durability](https://umod.org/plugins/engine-parts-durability) - Reduce or disable engine part durability (so they no longer take damage when the car does)
