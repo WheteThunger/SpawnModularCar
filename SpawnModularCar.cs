@@ -1320,7 +1320,8 @@ namespace Oxide.Plugins
                 SpawnCarCooldowns.UpdateLastUsedForPlayer(player.UserIDString);
             }
 
-            NextTick(() =>
+            // Using invoke because that is what the game uses to delay module entity creation.
+            car.Invoke(() =>
             {
                 FixCar(car, options.FuelAmount, options.EnginePartsTier);
                 MaybeFillTankerModules(car, options.FreshWaterAmount);
@@ -1331,7 +1332,7 @@ namespace Oxide.Plugins
                 if (options.KeyLock) TryAddKeyLockForPlayer(car, player);
 
                 onReady?.Invoke(car);
-            });
+            }, 0);
 
             return car;
         }
