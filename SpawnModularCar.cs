@@ -5,6 +5,7 @@ using Newtonsoft.Json.Serialization;
 using Oxide.Core;
 using Oxide.Core.Libraries.Covalence;
 using Oxide.Core.Plugins;
+using Rust;
 using Rust.Modular;
 using System.Collections.Generic;
 using System.Linq;
@@ -61,6 +62,22 @@ namespace Oxide.Plugins
 
         private const string RepairEffectPrefab = "assets/bundled/prefabs/fx/build/promote_toptier.prefab";
         private const string TankerFilledEffectPrefab = "assets/prefabs/food/water jug/effects/water-jug-fill-container.prefab";
+
+        private const int BoxcastLayers = Layers.Mask.Default
+            + Layers.Mask.Deployed
+            + Layers.Mask.Player_Server
+            + Layers.Mask.AI
+            + Layers.Mask.Vehicle_Detailed
+            + Layers.Mask.Vehicle_World
+            + Layers.Mask.World
+            + Layers.Mask.Construction
+            + Layers.Mask.Tree;
+
+        private readonly RaycastHit[] _boxcastBuffer = new RaycastHit[1];
+
+        private static readonly Vector3 ShortCarExtents = new Vector3(1, 1.1f, 1.5f);
+        private static readonly Vector3 MediumCarExtents = new Vector3(1, 1.1f, 2.3f);
+        private static readonly Vector3 LongCarExtents = new Vector3(1, 1.1f, 3);
 
         private readonly Dictionary<string, PlayerConfig> PlayerConfigsMap = new Dictionary<string, PlayerConfig>();
 
@@ -599,6 +616,7 @@ namespace Oxide.Plugins
                 !VerifyOffCooldown(FetchCarCooldowns, player) ||
                 !VerifyLocationNotRestricted(player) ||
                 !pluginConfig.CanFetchBuildingBlocked && !VerifyNotBuildingBlocked(player) ||
+                !VerifySufficientSpace(player, car.TotalSockets) ||
                 FetchMyCarWasBlocked(basePlayer, car)) return;
 
             // This is a hacky way to determine that the car is on a lift
@@ -1069,6 +1087,22 @@ namespace Oxide.Plugins
             return true;
         }
 
+        private bool VerifySufficientSpace(IPlayer player, int numSockets)
+        {
+            var basePlayer = player.Object as BasePlayer;
+            var position = GetIdealCarPosition(basePlayer);
+            var rotation = GetIdealCarRotation(basePlayer);
+
+            var carExtents = GetCarExtents(numSockets);
+            var carCenterPoint = position + rotation * new Vector3(0, carExtents.y);
+
+            if (Physics.BoxCastNonAlloc(carCenterPoint, carExtents, rotation * Vector3.forward, _boxcastBuffer, rotation, 0.1f, BoxcastLayers, QueryTriggerInteraction.Ignore) == 0)
+                return true;
+
+            ReplyToPlayer(player, "Generic.Error.InsufficientSpace");
+            return false;
+        }
+
         private bool VerifyHasPreset(IPlayer player, SimplePresetManager presetManager, string presetName, out SimplePreset preset)
         {
             preset = presetManager.FindPreset(presetName);
@@ -1171,6 +1205,19 @@ namespace Oxide.Plugins
             b.Name.ToLower() == DefaultPresetName ? 1 :
             a.Name.CompareTo(b.Name);
 
+        private Vector3 GetCarExtents(int numSockets)
+        {
+            switch (numSockets)
+            {
+                case 2:
+                    return ShortCarExtents;
+                case 3:
+                    return MediumCarExtents;
+                default:
+                    return LongCarExtents;
+            }
+        }
+
         private ModularCar FindPlayerCar(IPlayer player)
         {
             if (!pluginData.playerCars.ContainsKey(player.Id))
@@ -1248,6 +1295,7 @@ namespace Oxide.Plugins
         private void SpawnRandomCarForPlayer(IPlayer player, int desiredSockets)
         {
             var basePlayer = player.Object as BasePlayer;
+            if (!VerifySufficientSpace(player, desiredSockets)) return;
             if (SpawnMyCarWasBlocked(basePlayer)) return;
 
             var carOptions = new RandomCarOptions(player.Id, desiredSockets);
@@ -1271,6 +1319,7 @@ namespace Oxide.Plugins
             }
 
             var basePlayer = player.Object as BasePlayer;
+            if (!VerifySufficientSpace(player, preset.NumSockets)) return;
             if (SpawnMyCarWasBlocked(basePlayer)) return;
 
             var carOptions = new PresetCarOptions(player.Id, preset.ModuleIDs);
@@ -2169,6 +2218,7 @@ namespace Oxide.Plugins
                 ["Generic.Error.PresetMultipleMatches"] = "Error: Multiple presets found matching <color=yellow>{0}</color>. Use <color=yellow>mycar list</color> to view your presets.",
                 ["Generic.Error.PresetAlreadyTaken"] = "Error: Preset <color=yellow>{0}</color> is already taken.",
                 ["Generic.Error.PresetNameLength"] = "Error: Preset name may not be longer than {0} characters.",
+                ["Generic.Error.InsufficientSpace"] = "Error: Insufficient space.",
 
                 ["Generic.Info.CarDestroyed"] = "Your modular car was destroyed.",
                 ["Generic.Info.PartsRecovered"] = "Recovered engine components were added to your inventory or dropped in front of you.",
