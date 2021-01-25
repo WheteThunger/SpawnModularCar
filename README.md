@@ -219,7 +219,7 @@ Here are all of the available options you can define per preset. The only requir
   "Generic.Error.PresetMultipleMatches": "Error: Multiple presets found matching <color=yellow>{0}</color>. Use <color=yellow>mycar list</color> to view your presets.",
   "Generic.Error.PresetAlreadyTaken": "Error: Preset <color=yellow>{0}</color> is already taken.",
   "Generic.Error.PresetNameLength": "Error: Preset name may not be longer than {0} characters.",
-  "Generic.Error.InsufficientSpace": "Error: Insufficient space.",
+  "Generic.Error.InsufficientSpace": "Error: Not enough space.",
   "Generic.Info.CarDestroyed": "Your modular car was destroyed.",
   "Generic.Info.PartsRecovered": "Recovered engine components were added to your inventory or dropped in front of you.",
   "Command.Spawn.Error.SocketSyntax": "Syntax: <color=yellow>mycar <2|3|4></color>",

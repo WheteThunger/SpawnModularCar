@@ -63,6 +63,7 @@ namespace Oxide.Plugins
         private const string RepairEffectPrefab = "assets/bundled/prefabs/fx/build/promote_toptier.prefab";
         private const string TankerFilledEffectPrefab = "assets/prefabs/food/water jug/effects/water-jug-fill-container.prefab";
 
+        // To preventing spawning inside walls or players
         private const int BoxcastLayers = Layers.Mask.Default
             + Layers.Mask.Deployed
             + Layers.Mask.Player_Server
@@ -73,11 +74,35 @@ namespace Oxide.Plugins
             + Layers.Mask.Construction
             + Layers.Mask.Tree;
 
-        private readonly RaycastHit[] _boxcastBuffer = new RaycastHit[1];
+        // To find a surface to spawn on
+        private const int RaycastLayers = Layers.Mask.Default
+            + Layers.Mask.Terrain
+            + Layers.World
+            + Layers.Mask.Construction;
 
         private static readonly Vector3 ShortCarExtents = new Vector3(1, 1.1f, 1.5f);
         private static readonly Vector3 MediumCarExtents = new Vector3(1, 1.1f, 2.3f);
         private static readonly Vector3 LongCarExtents = new Vector3(1, 1.1f, 3);
+
+        private static readonly Vector3 ShortCarFrontLeft = new Vector3(ShortCarExtents.x, 0, ShortCarExtents.z);
+        private static readonly Vector3 ShortCarFrontRight = new Vector3(-ShortCarExtents.x, 0, ShortCarExtents.z);
+        private static readonly Vector3 ShortCarBackLeft = new Vector3(ShortCarExtents.x, 0, -ShortCarExtents.z);
+        private static readonly Vector3 ShortCarBackRight = new Vector3(-ShortCarExtents.x, 0, -ShortCarExtents.z);
+
+        private static readonly Vector3 MediumCarFrontLeft = new Vector3(MediumCarExtents.x, 0, MediumCarExtents.z);
+        private static readonly Vector3 MediumCarFrontRight = new Vector3(-MediumCarExtents.x, 0, MediumCarExtents.z);
+        private static readonly Vector3 MediumCarBackLeft = new Vector3(MediumCarExtents.x, 0, -MediumCarExtents.z);
+        private static readonly Vector3 MediumCarBackRight = new Vector3(-MediumCarExtents.x, 0, -MediumCarExtents.z);
+
+        private static readonly Vector3 LongCarFrontLeft = new Vector3(LongCarExtents.x, 0, LongCarExtents.z);
+        private static readonly Vector3 LongCarFrontRight = new Vector3(-LongCarExtents.x, 0, LongCarExtents.z);
+        private static readonly Vector3 LongCarBackLeft = new Vector3(LongCarExtents.x, 0, -LongCarExtents.z);
+        private static readonly Vector3 LongCarBackRight = new Vector3(-LongCarExtents.x, 0, -LongCarExtents.z);
+
+        private static readonly float ForwardRaycastDistance = 1.5f + ShortCarExtents.x;
+        private const float DownwardRaycastDistance = 4;
+
+        private readonly RaycastHit[] _boxcastBuffer = new RaycastHit[1];
 
         private readonly Dictionary<string, PlayerConfig> PlayerConfigsMap = new Dictionary<string, PlayerConfig>();
 
@@ -184,7 +209,16 @@ namespace Oxide.Plugins
             if (SpawnWasBlocked(player)) return null;
 
             var presetOptions = apiOptions.ToPresetOptions();
-            return SpawnCarForPlayer(player, presetOptions, false, onReady);
+
+            Vector3 spawnPosition;
+            Quaternion rotation;
+            if (!TryGetIdealCarPositionAndRotation(player, presetOptions.Length, out spawnPosition, out rotation))
+            {
+                spawnPosition = GetFixedCarPosition(player);
+                rotation = GetRelativeCarRotation(player);
+            }
+
+            return SpawnCarForPlayer(player, presetOptions, spawnPosition, rotation, shouldTrackCar: false, onReady: onReady);
         }
 
         internal class APIOptions
@@ -283,7 +317,16 @@ namespace Oxide.Plugins
                         ReplyToPlayer(player, "Command.Give.Error.PresetTooManyModules", preset.Name, carOptions.Length);
                         return;
                     }
-                    SpawnCarForPlayer(targetPlayer, carOptions, shouldTrackCar: false, onReady: car =>
+
+                    Vector3 spawnPosition;
+                    Quaternion rotation;
+                    if (!TryGetIdealCarPositionAndRotation(targetPlayer, preset.Options.Length, out spawnPosition, out rotation))
+                    {
+                        spawnPosition = GetFixedCarPosition(targetPlayer);
+                        rotation = GetRelativeCarRotation(targetPlayer);
+                    }
+
+                    SpawnCarForPlayer(targetPlayer, carOptions, spawnPosition, rotation, shouldTrackCar: false, onReady: car =>
                     {
                         ReplyToPlayer(player, "Command.Give.Success", targetPlayer.displayName, preset.Name);
                     });
@@ -610,13 +653,15 @@ namespace Oxide.Plugins
 
             var basePlayer = player.Object as BasePlayer;
             ModularCar car;
+            Vector3 fetchPosition;
+            Quaternion fetchRotation;
 
             if (!VerifyHasCar(player, out car) ||
                 !pluginConfig.CanFetchOccupied && !VerifyCarNotOccupied(player, car) ||
                 !VerifyOffCooldown(FetchCarCooldowns, player) ||
                 !VerifyLocationNotRestricted(player) ||
                 !pluginConfig.CanFetchBuildingBlocked && !VerifyNotBuildingBlocked(player) ||
-                !VerifySufficientSpace(player, car.TotalSockets) ||
+                !VerifySufficientSpace(player, car.TotalSockets, out fetchPosition, out fetchRotation) ||
                 FetchMyCarWasBlocked(basePlayer, car)) return;
 
             // This is a hacky way to determine that the car is on a lift
@@ -637,7 +682,7 @@ namespace Oxide.Plugins
             var maxAngularVelocity = car.rigidBody.maxAngularVelocity;
             car.rigidBody.maxAngularVelocity = 0;
 
-            car.transform.SetPositionAndRotation(GetIdealCarPosition(basePlayer), GetIdealCarRotation(basePlayer));
+            car.transform.SetPositionAndRotation(fetchPosition, fetchRotation);
             car.SetVelocity(Vector3.zero);
             car.SetAngularVelocity(Vector3.zero);
             car.UpdateNetworkGroup();
@@ -1087,20 +1132,18 @@ namespace Oxide.Plugins
             return true;
         }
 
-        private bool VerifySufficientSpace(IPlayer player, int numSockets)
+        private bool VerifySufficientSpace(IPlayer player, int numSockets, out Vector3 determinedPosition, out Quaternion determinedRotation)
         {
             var basePlayer = player.Object as BasePlayer;
-            var position = GetIdealCarPosition(basePlayer);
-            var rotation = GetIdealCarRotation(basePlayer);
 
-            var carExtents = GetCarExtents(numSockets);
-            var carCenterPoint = position + rotation * new Vector3(0, carExtents.y);
+            if (!TryGetIdealCarPositionAndRotation(basePlayer, numSockets, out determinedPosition, out determinedRotation)
+                || !HasSufficientSpace(basePlayer, numSockets, determinedPosition, determinedRotation))
+            {
+                ReplyToPlayer(player, "Generic.Error.InsufficientSpace");
+                return false;
+            }
 
-            if (Physics.BoxCastNonAlloc(carCenterPoint, carExtents, rotation * Vector3.forward, _boxcastBuffer, rotation, 0.1f, BoxcastLayers, QueryTriggerInteraction.Ignore) == 0)
-                return true;
-
-            ReplyToPlayer(player, "Generic.Error.InsufficientSpace");
-            return false;
+            return true;
         }
 
         private bool VerifyHasPreset(IPlayer player, SimplePresetManager presetManager, string presetName, out SimplePreset preset)
@@ -1218,6 +1261,31 @@ namespace Oxide.Plugins
             }
         }
 
+        private void GetCarFrontBack(int numSockets, out Vector3 frontLeft, out Vector3 frontRight, out Vector3 backLeft, out Vector3 backRight)
+        {
+            switch (numSockets)
+            {
+                case 2:
+                    frontLeft = ShortCarFrontLeft;
+                    frontRight = ShortCarFrontRight;
+                    backLeft = ShortCarBackLeft;
+                    backRight = ShortCarBackRight;
+                    return;
+                case 3:
+                    frontLeft = MediumCarFrontLeft;
+                    frontRight = MediumCarFrontRight;
+                    backLeft = MediumCarBackLeft;
+                    backRight = MediumCarBackRight;
+                    return;
+                default:
+                    frontLeft = LongCarFrontLeft;
+                    frontRight = LongCarFrontRight;
+                    backLeft = LongCarBackLeft;
+                    backRight = LongCarBackRight;
+                    return;
+            }
+        }
+
         private ModularCar FindPlayerCar(IPlayer player)
         {
             if (!pluginData.playerCars.ContainsKey(player.Id))
@@ -1250,16 +1318,67 @@ namespace Oxide.Plugins
             return moduleIDs.ToArray();
         }
 
-        private Vector3 GetIdealCarPosition(BasePlayer player)
+        private Vector3 GetPlayerForwardPosition(BasePlayer player)
         {
             Vector3 forward = player.GetNetworkRotation() * Vector3.forward;
             forward.y = 0;
-            Vector3 position = player.transform.position + forward.normalized * 3f;
+            return forward.normalized;
+        }
+
+        // Directly in front of the player
+        private Vector3 GetFixedCarPosition(BasePlayer player)
+        {
+            Vector3 forward = GetPlayerForwardPosition(player);
+            Vector3 position = player.transform.position + forward * 3f;
             position.y = player.transform.position.y + 1f;
             return position;
         }
 
-        private Quaternion GetIdealCarRotation(BasePlayer player) =>
+        // On terrain or building block in front of player
+        private bool TryGetIdealCarPositionAndRotation(BasePlayer player, int numSockets, out Vector3 position, out Quaternion rotation)
+        {
+            var carMiddle = player.eyes.position + GetPlayerForwardPosition(player) * ForwardRaycastDistance;
+
+            Vector3 carFrontLeft, carFrontRight, carBackLeft, carBackRight;
+            GetCarFrontBack(numSockets, out carFrontLeft, out carFrontRight, out carBackLeft, out carBackRight);
+
+            var initialRotation = GetRelativeCarRotation(player);
+
+            RaycastHit frontLeftHit, frontRightHit, backLeftHit, backRightHit;
+            if (!Physics.Raycast(carMiddle + initialRotation * carFrontLeft, Vector3.down, out frontLeftHit, DownwardRaycastDistance, RaycastLayers, QueryTriggerInteraction.Ignore)
+                || !Physics.Raycast(carMiddle + initialRotation * carFrontRight, Vector3.down, out frontRightHit, DownwardRaycastDistance, RaycastLayers, QueryTriggerInteraction.Ignore)
+                || !Physics.Raycast(carMiddle + initialRotation * carBackLeft, Vector3.down, out backLeftHit, DownwardRaycastDistance, RaycastLayers, QueryTriggerInteraction.Ignore)
+                || !Physics.Raycast(carMiddle + initialRotation * carBackRight, Vector3.down, out backRightHit, DownwardRaycastDistance, RaycastLayers, QueryTriggerInteraction.Ignore))
+            {
+                position = Vector3.zero;
+                rotation = Quaternion.identity;
+                return false;
+            }
+
+            // Rotate the car relative to the hit positions
+            rotation = Quaternion.LookRotation((frontLeftHit.point - backLeftHit.point), Vector3.up)
+                * Quaternion.Euler(0, 0, (frontLeftHit.point - frontRightHit.point).y * 30);
+
+            // Spawn in the midpoint between the front and back hits
+            position = Vector3.Lerp(frontLeftHit.point, backRightHit.point, 0.5f);
+
+            return true;
+        }
+
+        private bool HasSufficientSpace(BasePlayer player, int numSockets, Vector3 desiredPosition, Quaternion rotation)
+        {
+            var carExtents = GetCarExtents(numSockets);
+            var carCenterPoint = desiredPosition + rotation * new Vector3(0, carExtents.y);
+
+            // Need some extra height for the boxcast to allow spawning on a lift since lifts are construction
+            // Cars can't be spawned on sleepers
+            // Cars can still be spawned below ceiling lights
+            carCenterPoint.y += 0.3f;
+
+            return Physics.BoxCastNonAlloc(carCenterPoint, carExtents, rotation * Vector3.forward, _boxcastBuffer, rotation, 0.1f, BoxcastLayers, QueryTriggerInteraction.Ignore) == 0;
+        }
+
+        private Quaternion GetRelativeCarRotation(BasePlayer player) =>
             Quaternion.Euler(0, player.GetNetworkRotation().eulerAngles.y - 90, 0);
 
         private int GetPlayerAllowedFreshWater(string userID) =>
@@ -1295,11 +1414,13 @@ namespace Oxide.Plugins
         private void SpawnRandomCarForPlayer(IPlayer player, int desiredSockets)
         {
             var basePlayer = player.Object as BasePlayer;
-            if (!VerifySufficientSpace(player, desiredSockets)) return;
+            Vector3 spawnPosition;
+            Quaternion rotation;
+            if (!VerifySufficientSpace(player, desiredSockets, out spawnPosition, out rotation)) return;
             if (SpawnMyCarWasBlocked(basePlayer)) return;
 
             var carOptions = new RandomCarOptions(player.Id, desiredSockets);
-            SpawnCarForPlayer(basePlayer, carOptions, shouldTrackCar: true, onReady: car =>
+            SpawnCarForPlayer(basePlayer, carOptions, spawnPosition, rotation, shouldTrackCar: true, onReady: car =>
             {
                 var chatMessages = new List<string> { GetMessage(player, "Command.Spawn.Success") };
 
@@ -1319,11 +1440,13 @@ namespace Oxide.Plugins
             }
 
             var basePlayer = player.Object as BasePlayer;
-            if (!VerifySufficientSpace(player, preset.NumSockets)) return;
+            Vector3 spawnPosition;
+            Quaternion rotation;
+            if (!VerifySufficientSpace(player, preset.NumSockets, out spawnPosition, out rotation)) return;
             if (SpawnMyCarWasBlocked(basePlayer)) return;
 
             var carOptions = new PresetCarOptions(player.Id, preset.ModuleIDs);
-            SpawnCarForPlayer(basePlayer, carOptions, shouldTrackCar: true, onReady: car =>
+            SpawnCarForPlayer(basePlayer, carOptions, spawnPosition, rotation, shouldTrackCar: true, onReady: car =>
             {
                 var chatMessages = new List<string> { GetMessage(player, "Command.Spawn.Success.Preset", preset.Name) };
 
@@ -1337,7 +1460,7 @@ namespace Oxide.Plugins
             });
         }
 
-        private ModularCar SpawnCarForPlayer(BasePlayer player, BaseCarOptions options, bool shouldTrackCar = false, Action<ModularCar> onReady = null)
+        private ModularCar SpawnCarForPlayer(BasePlayer player, BaseCarOptions options, Vector3 position, Quaternion rotation, bool shouldTrackCar = false, Action<ModularCar> onReady = null)
         {
             var numSockets = options.Length;
 
@@ -1347,10 +1470,7 @@ namespace Oxide.Plugins
             else if (numSockets == 2) prefabName = PrefabSockets2;
             else return null;
 
-            var position = GetIdealCarPosition(player);
-            if (position == null) return null;
-
-            ModularCar car = (ModularCar)GameManager.server.CreateEntity(prefabName, position, GetIdealCarRotation(player));
+            ModularCar car = (ModularCar)GameManager.server.CreateEntity(prefabName, position, rotation);
             if (car == null) return null;
 
             var presetOptions = options as PresetCarOptions;
@@ -2218,7 +2338,7 @@ namespace Oxide.Plugins
                 ["Generic.Error.PresetMultipleMatches"] = "Error: Multiple presets found matching <color=yellow>{0}</color>. Use <color=yellow>mycar list</color> to view your presets.",
                 ["Generic.Error.PresetAlreadyTaken"] = "Error: Preset <color=yellow>{0}</color> is already taken.",
                 ["Generic.Error.PresetNameLength"] = "Error: Preset name may not be longer than {0} characters.",
-                ["Generic.Error.InsufficientSpace"] = "Error: Insufficient space.",
+                ["Generic.Error.InsufficientSpace"] = "Error: Not enough space.",
 
                 ["Generic.Info.CarDestroyed"] = "Your modular car was destroyed.",
                 ["Generic.Info.PartsRecovered"] = "Recovered engine components were added to your inventory or dropped in front of you.",
