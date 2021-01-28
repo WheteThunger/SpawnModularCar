@@ -2147,29 +2147,29 @@ namespace Oxide.Plugins
             [JsonProperty("CanDespawnWhileOccupied")]
             public bool CanDespawnOccupied = false;
 
-            [JsonProperty("Presets")]
-            public ServerPreset[] Presets = new ServerPreset[0];
-
-            [JsonProperty("Cooldowns")]
-            public CooldownConfig Cooldowns = new CooldownConfig();
+            [JsonProperty("DismountPlayersOnFetch")]
+            public bool DismountPlayersOnFetch = true;
 
             [JsonProperty("DeleteMatchingKeysFromPlayerInventoryOnDespawn")]
             public bool DeleteKeyOnDespawn = true;
 
-            [JsonProperty("DismountPlayersOnFetch")]
-            public bool DismountPlayersOnFetch = true;
-
-            [JsonProperty("EnableEffects")]
-            public bool EnableEffects = true;
+            [JsonProperty("FuelAmount")]
+            public int FuelAmount = -1;
 
             [JsonProperty("FreshWaterAmount")]
             public int FreshWaterAmount = -1;
 
-            [JsonProperty("FuelAmount")]
-            public int FuelAmount = -1;
-
             [JsonProperty("MaxPresetsPerPlayer")]
             public int MaxPresetsPerPlayer = 10;
+
+            [JsonProperty("EnableEffects")]
+            public bool EnableEffects = true;
+
+            [JsonProperty("Cooldowns")]
+            public CooldownConfig Cooldowns = new CooldownConfig();
+
+            [JsonProperty("Presets")]
+            public ServerPreset[] Presets = new ServerPreset[0];
 
             public bool ValidateServerPresets()
             {
