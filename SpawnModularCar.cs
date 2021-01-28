@@ -2322,16 +2322,16 @@ namespace Oxide.Plugins
         internal class CooldownConfig
         {
             [JsonProperty("SpawnCarSeconds")]
-            public float SpawnSeconds = 10;
+            public float SpawnSeconds = 3600;
 
             [JsonProperty("FetchCarSeconds")]
-            public float FetchSeconds = 10;
+            public float FetchSeconds = 600;
 
             [JsonProperty("LoadPresetSeconds")]
-            public float LoadPresetSeconds = 10;
+            public float LoadPresetSeconds = 3600;
 
             [JsonProperty("FixCarSeconds")]
-            public float FixSeconds = 60;
+            public float FixSeconds = 3600;
         }
 
         private Configuration GetDefaultConfig() => new Configuration();
