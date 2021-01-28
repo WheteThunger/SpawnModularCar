@@ -1,6 +1,7 @@
 ﻿using System;
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using Oxide.Core;
 using Oxide.Core.Libraries.Covalence;
@@ -26,7 +27,7 @@ namespace Oxide.Plugins
         private static SpawnModularCar pluginInstance;
 
         private PluginData pluginData;
-        private PluginConfig pluginConfig;
+        private Configuration _pluginConfig;
 
         private const string DefaultPresetName = "default";
         private const int PresetMaxLength = 30;
@@ -120,7 +121,7 @@ namespace Oxide.Plugins
             pluginInstance = this;
 
             pluginData = Interface.Oxide.DataFileSystem.ReadObject<PluginData>(Name);
-            pluginConfig = Config.ReadObject<PluginConfig>();
+            MigrateConfig();
 
             permission.RegisterPermission(PermissionSpawnSockets2, this);
             permission.RegisterPermission(PermissionSpawnSockets3, this);
@@ -145,10 +146,10 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermissionCommonPresets, this);
             permission.RegisterPermission(PermissionManageCommonPresets, this);
 
-            SpawnCarCooldowns = new CooldownManager(pluginConfig.Cooldowns.SpawnSeconds);
-            FixCarCooldowns = new CooldownManager(pluginConfig.Cooldowns.FixSeconds);
-            FetchCarCooldowns = new CooldownManager(pluginConfig.Cooldowns.FetchSeconds);
-            LoadPresetCooldowns = new CooldownManager(pluginConfig.Cooldowns.LoadPresetSeconds);
+            SpawnCarCooldowns = new CooldownManager(_pluginConfig.Cooldowns.SpawnSeconds);
+            FixCarCooldowns = new CooldownManager(_pluginConfig.Cooldowns.FixSeconds);
+            FetchCarCooldowns = new CooldownManager(_pluginConfig.Cooldowns.FetchSeconds);
+            LoadPresetCooldowns = new CooldownManager(_pluginConfig.Cooldowns.LoadPresetSeconds);
         }
 
         private void Unload()
@@ -260,7 +261,7 @@ namespace Oxide.Plugins
                 var moduleArray = options[ModulesField] as object[];
                 if (moduleArray == null) return null;
 
-                return pluginInstance.ParseModules(moduleArray);
+                return pluginInstance.ValidateModules(moduleArray);
             }
 
             public PresetCarOptions ToPresetOptions()
@@ -272,7 +273,7 @@ namespace Oxide.Plugins
                     EnginePartsTier = EnginePartsTier,
                     FreshWaterAmount = FreshWaterAmount,
                     FuelAmount = FuelAmount,
-                    ModuleIDs = ModuleIDs
+                    NormalizedModuleIDs = ModuleIDs
                 };
             }
         }
@@ -302,7 +303,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            foreach (var preset in pluginConfig.Presets)
+            foreach (var preset in _pluginConfig.Presets)
             {
                 if (preset.Name.ToLower() == presetNameArg.ToLower())
                 {
@@ -553,7 +554,7 @@ namespace Oxide.Plugins
             if (!VerifyHasNoCar(player)) return;
             if (!VerifyOffCooldown(SpawnCarCooldowns, player)) return;
             if (!VerifyLocationNotRestricted(player)) return;
-            if (!pluginConfig.CanSpawnBuildingBlocked && !VerifyNotBuildingBlocked(player)) return;
+            if (!_pluginConfig.CanSpawnBuildingBlocked && !VerifyNotBuildingBlocked(player)) return;
 
             // Key binds automatically pass the "True" argument
             var wasPassedArgument = args.Length > 0 && args[0] != "True";
@@ -617,7 +618,7 @@ namespace Oxide.Plugins
             if (!VerifyHasNoCar(player)) return;
             if (!VerifyOffCooldown(SpawnCarCooldowns, player)) return;
             if (!VerifyLocationNotRestricted(player)) return;
-            if (!pluginConfig.CanSpawnBuildingBlocked && !VerifyNotBuildingBlocked(player)) return;
+            if (!_pluginConfig.CanSpawnBuildingBlocked && !VerifyNotBuildingBlocked(player)) return;
 
             var presetNameArg = args[0];
 
@@ -657,10 +658,10 @@ namespace Oxide.Plugins
             Quaternion fetchRotation;
 
             if (!VerifyHasCar(player, out car) ||
-                !pluginConfig.CanFetchOccupied && !VerifyCarNotOccupied(player, car) ||
+                !_pluginConfig.CanFetchOccupied && !VerifyCarNotOccupied(player, car) ||
                 !VerifyOffCooldown(FetchCarCooldowns, player) ||
                 !VerifyLocationNotRestricted(player) ||
-                !pluginConfig.CanFetchBuildingBlocked && !VerifyNotBuildingBlocked(player) ||
+                !_pluginConfig.CanFetchBuildingBlocked && !VerifyNotBuildingBlocked(player) ||
                 !VerifySufficientSpace(player, car.TotalSockets, out fetchPosition, out fetchRotation) ||
                 FetchMyCarWasBlocked(basePlayer, car)) return;
 
@@ -675,7 +676,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            if (pluginConfig.DismountPlayersOnFetch)
+            if (_pluginConfig.DismountPlayersOnFetch)
                 DismountAllPlayersFromCar(car);
 
             // Temporarily clear max angular velocity to prevent the car from unexpectedly spinning when teleporting really far
@@ -705,7 +706,7 @@ namespace Oxide.Plugins
             ModularCar car;
 
             if (!VerifyHasCar(player, out car) ||
-                !pluginConfig.CanDespawnOccupied && !VerifyCarNotOccupied(player, car) ||
+                !_pluginConfig.CanDespawnOccupied && !VerifyCarNotOccupied(player, car) ||
                 DestroyMyCarWasBlocked(basePlayer, car))
                 return;
 
@@ -781,9 +782,9 @@ namespace Oxide.Plugins
             var presetManager = GetPlayerConfig(player);
             if (!VerifyNoMatchingPreset(player, presetManager, presetNameArg)) return;
 
-            if (presetManager.Presets.Count >= pluginConfig.MaxPresetsPerPlayer)
+            if (presetManager.Presets.Count >= _pluginConfig.MaxPresetsPerPlayer)
             {
-                ReplyToPlayer(player, "Command.SavePreset.Error.TooManyPresets", pluginConfig.MaxPresetsPerPlayer);
+                ReplyToPlayer(player, "Command.SavePreset.Error.TooManyPresets", _pluginConfig.MaxPresetsPerPlayer);
                 return;
             }
 
@@ -1382,10 +1383,10 @@ namespace Oxide.Plugins
             Quaternion.Euler(0, player.GetNetworkRotation().eulerAngles.y - 90, 0);
 
         private int GetPlayerAllowedFreshWater(string userID) =>
-            permission.UserHasPermission(userID, PermissionAutoFillTankers) && GetPlayerConfig(userID).Settings.AutoFillTankers ? pluginConfig.FreshWaterAmount : 0;
+            permission.UserHasPermission(userID, PermissionAutoFillTankers) && GetPlayerConfig(userID).Settings.AutoFillTankers ? _pluginConfig.FreshWaterAmount : 0;
 
         private int GetPlayerAllowedFuel(string userID) =>
-            permission.UserHasPermission(userID, PermissionAutoFuel) ? pluginConfig.FuelAmount : 0;
+            permission.UserHasPermission(userID, PermissionAutoFuel) ? _pluginConfig.FuelAmount : 0;
 
         private int GetPlayerEnginePartsTier(string userID)
         {
@@ -1481,7 +1482,7 @@ namespace Oxide.Plugins
             car.Spawn();
 
             if (presetOptions != null)
-                AddInitialModules(car, presetOptions.ModuleIDs);
+                AddInitialModules(car, presetOptions.NormalizedModuleIDs);
 
             if (shouldTrackCar)
             {
@@ -1805,7 +1806,7 @@ namespace Oxide.Plugins
 
         private void MaybeRemoveMatchingKeysFromPlayer(BasePlayer player, ModularCar car)
         {
-            if (pluginConfig.DeleteKeyOnDespawn && car.carLock.HasALock)
+            if (_pluginConfig.DeleteKeyOnDespawn && car.carLock.HasALock)
             {
                 var matchingKeys = player.inventory.FindItemIDs(car.carKeyDefinition.itemid)
                     .Where(key => key.instanceData != null && key.instanceData.dataInt == car.carLock.LockID);
@@ -1824,7 +1825,7 @@ namespace Oxide.Plugins
                 var liquidContainer = (module as VehicleModuleStorage)?.GetContainer() as LiquidContainer;
                 if (liquidContainer == null) continue;
 
-                if (FillLiquidContainer(liquidContainer, specifiedLiquidAmount) && pluginConfig.EnableEffects)
+                if (FillLiquidContainer(liquidContainer, specifiedLiquidAmount) && _pluginConfig.EnableEffects)
                     Effect.server.Run(TankerFilledEffectPrefab, module.transform.position);
             }
         }
@@ -1861,7 +1862,7 @@ namespace Oxide.Plugins
 
         private void MaybePlayCarRepairEffects(ModularCar car)
         {
-            if (!pluginConfig.EnableEffects) return;
+            if (!_pluginConfig.EnableEffects) return;
 
             if (car.AttachedModuleEntities.Count > 0)
                 foreach (var module in car.AttachedModuleEntities)
@@ -1870,8 +1871,10 @@ namespace Oxide.Plugins
                 Effect.server.Run(RepairEffectPrefab, car.transform.position);
         }
 
-        private int[] ParseModules(object[] moduleArray)
+        private int[] ValidateModules(object[] moduleArray)
         {
+            ItemManager.Initialize();
+
             var moduleIDList = new List<int>();
 
             foreach (var module in moduleArray)
@@ -1905,20 +1908,20 @@ namespace Oxide.Plugins
                 }
                 else
                 {
-                    pluginInstance.LogWarning("Unable to parse module id or name: '{0}'", module);
+                    LogWarning("Unable to parse module id or name: '{0}'", module);
                     continue;
                 }
 
                 if (itemDef == null)
                 {
-                    pluginInstance.LogWarning("No item definition found for: '{0}'", module);
+                    LogWarning("No item definition found for: '{0}'", module);
                     continue;
                 }
 
                 var vehicleModule = itemDef.GetComponent<ItemModVehicleModule>();
                 if (vehicleModule == null)
                 {
-                    pluginInstance.LogWarning("No vehicle module found for item: '{0}'", module);
+                    LogWarning("No vehicle module found for item: '{0}'", module);
                     continue;
                 }
 
@@ -1932,7 +1935,7 @@ namespace Oxide.Plugins
             return moduleIDList.ToArray();
         }
 
-        private int Clamp(int x, int min, int max) => Math.Min(max, Math.Max(min, x));
+        private static int Clamp(int x, int min, int max) => Math.Min(max, Math.Max(min, x));
 
         #endregion
 
@@ -2121,11 +2124,16 @@ namespace Oxide.Plugins
 
         #region Configuration
 
-        protected override void LoadDefaultConfig() => Config.WriteObject(GetDefaultConfig(), true);
+        private void MigrateConfig()
+        {
+            if (_pluginConfig.ValidateServerPresets())
+            {
+                LogWarning("Performing automatic config migration.");
+                SaveConfig();
+            }
+        }
 
-        private PluginConfig GetDefaultConfig() => new PluginConfig();
-
-        internal class PluginConfig
+        internal class Configuration : SerializableConfiguration
         {
             [JsonProperty("CanSpawnWhileBuildingBlocked")]
             public bool CanSpawnBuildingBlocked = false;
@@ -2162,6 +2170,17 @@ namespace Oxide.Plugins
 
             [JsonProperty("MaxPresetsPerPlayer")]
             public int MaxPresetsPerPlayer = 10;
+
+            public bool ValidateServerPresets()
+            {
+                var changed = false;
+
+                foreach (var preset in Presets)
+                    if (preset.Options.ValidateModules())
+                        changed = true;
+
+                return changed;
+            }
         }
 
         internal class ServerPreset
@@ -2184,7 +2203,7 @@ namespace Oxide.Plugins
             public int EnginePartsTier
             {
                 get { return _enginePartsTier; }
-                set { _enginePartsTier = pluginInstance.Clamp(value, 0, 3); }
+                set { _enginePartsTier = Clamp(value, 0, 3); }
             }
 
             [JsonProperty("FreshWaterAmount")]
@@ -2214,12 +2233,12 @@ namespace Oxide.Plugins
         internal class PresetCarOptions : BaseCarOptions
         {
             [JsonProperty("ModuleIDs")]
-            public virtual int[] ModuleIDs { get; set; } = new int[0];
+            public virtual int[] NormalizedModuleIDs { get; set; } = new int[0];
 
             [JsonIgnore]
             public override int Length
             {
-                get { return ModuleIDs.Length; }
+                get { return NormalizedModuleIDs?.Length ?? 0; }
             }
 
             // Empty constructor needed for deserialization
@@ -2227,7 +2246,7 @@ namespace Oxide.Plugins
 
             public PresetCarOptions(string userID, int[] moduleIDs) : base(userID)
             {
-                ModuleIDs = moduleIDs;
+                NormalizedModuleIDs = moduleIDs;
             }
         }
 
@@ -2248,23 +2267,39 @@ namespace Oxide.Plugins
 
         internal class ServerPresetOptions : PresetCarOptions
         {
-            private int[] _normalizedModuleIDs = new int[0];
+            // Override so we can avoid serializing it
+            public override int[] NormalizedModuleIDs { get; set; }
 
-            public override int[] ModuleIDs
-            {
-                get { return _normalizedModuleIDs; }
-                // Legacy field
-                set { _normalizedModuleIDs = NormalizeModuleIDs(value); }
-            }
+            // Hidden from config
+            public bool ShouldSerializeNormalizedModuleIDs() => false;
 
             [JsonProperty("Modules")]
-            public object[] Modules
+            public object[] Modules;
+
+            // Return value indicates whether the config was changed
+            public bool ValidateModules()
             {
-                set { _normalizedModuleIDs = pluginInstance.ParseModules(value); }
+                // Give precedence to "Modules"
+                if (Modules != null)
+                {
+                    NormalizedModuleIDs = pluginInstance.ValidateModules(Modules);
+                }
+                else if (NormalizedModuleIDs != null)
+                {
+                    // Resave the config with the field renamed to Modules
+                    // Must do this before normalizing so that no extra 0's are added
+                    Modules = NormalizedModuleIDs.Cast<object>().ToArray();
+                    NormalizedModuleIDs = NormalizeModuleIDs(NormalizedModuleIDs);
+                    return true;
+                }
+
+                return false;
             }
 
             private int[] NormalizeModuleIDs(int[] moduleIDs)
             {
+                ItemManager.Initialize();
+
                 var moduleIDList = moduleIDs.ToList();
 
                 for (var i = 0; i < moduleIDList.Count; i++)
@@ -2297,6 +2332,113 @@ namespace Oxide.Plugins
 
             [JsonProperty("FixCarSeconds")]
             public float FixSeconds = 60;
+        }
+
+        private Configuration GetDefaultConfig() => new Configuration();
+
+        #endregion
+
+        #region Configuration Boilerplate
+
+        internal class SerializableConfiguration
+        {
+            public string ToJson() => JsonConvert.SerializeObject(this);
+
+            public Dictionary<string, object> ToDictionary() => JsonHelper.Deserialize(ToJson()) as Dictionary<string, object>;
+        }
+
+        internal static class JsonHelper
+        {
+            public static object Deserialize(string json) => ToObject(JToken.Parse(json));
+
+            private static object ToObject(JToken token)
+            {
+                switch (token.Type)
+                {
+                    case JTokenType.Object:
+                        return token.Children<JProperty>()
+                                    .ToDictionary(prop => prop.Name,
+                                                  prop => ToObject(prop.Value));
+
+                    case JTokenType.Array:
+                        return token.Select(ToObject).ToList();
+
+                    default:
+                        return ((JValue)token).Value;
+                }
+            }
+        }
+
+        private bool MaybeUpdateConfig(SerializableConfiguration config)
+        {
+            var currentWithDefaults = config.ToDictionary();
+            var currentRaw = Config.ToDictionary(x => x.Key, x => x.Value);
+            return MaybeUpdateConfigDict(currentWithDefaults, currentRaw);
+        }
+
+        private bool MaybeUpdateConfigDict(Dictionary<string, object> currentWithDefaults, Dictionary<string, object> currentRaw)
+        {
+            bool changed = false;
+
+            foreach (var key in currentWithDefaults.Keys)
+            {
+                object currentRawValue;
+                if (currentRaw.TryGetValue(key, out currentRawValue))
+                {
+                    var defaultDictValue = currentWithDefaults[key] as Dictionary<string, object>;
+                    var currentDictValue = currentRawValue as Dictionary<string, object>;
+
+                    if (defaultDictValue != null)
+                    {
+                        if (currentDictValue == null)
+                        {
+                            currentRaw[key] = currentWithDefaults[key];
+                            changed = true;
+                        }
+                        else if (MaybeUpdateConfigDict(defaultDictValue, currentDictValue))
+                            changed = true;
+                    }
+                }
+                else
+                {
+                    currentRaw[key] = currentWithDefaults[key];
+                    changed = true;
+                }
+            }
+
+            return changed;
+        }
+
+        protected override void LoadDefaultConfig() => _pluginConfig = GetDefaultConfig();
+
+        protected override void LoadConfig()
+        {
+            base.LoadConfig();
+            try
+            {
+                _pluginConfig = Config.ReadObject<Configuration>();
+                if (_pluginConfig == null)
+                {
+                    throw new JsonException();
+                }
+
+                if (MaybeUpdateConfig(_pluginConfig))
+                {
+                    LogWarning("Configuration appears to be outdated; updating and saving");
+                    SaveConfig();
+                }
+            }
+            catch (Exception e)
+            {
+                LogWarning($"Configuration file {Name}.json is invalid; using defaults");
+                LoadDefaultConfig();
+            }
+        }
+
+        protected override void SaveConfig()
+        {
+            Log($"Configuration changes saved to {Name}.json");
+            Config.WriteObject(_pluginConfig, true);
         }
 
         #endregion
