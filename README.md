@@ -105,37 +105,37 @@ Misc:
 
 ```json
 {
-  "CanDespawnWhileOccupied": false,
+  "CanSpawnWhileBuildingBlocked": false,
   "CanFetchWhileBuildingBlocked": false,
   "CanFetchWhileOccupied": false,
-  "CanSpawnWhileBuildingBlocked": false,
-  "Cooldowns": {
-    "FetchCarSeconds": 10.0,
-    "FixCarSeconds": 60.0,
-    "LoadPresetSeconds": 10.0,
-    "SpawnCarSeconds": 10.0
-  },
-  "DeleteMatchingKeysFromPlayerInventoryOnDespawn": true,
+  "CanDespawnWhileOccupied": false,
   "DismountPlayersOnFetch": true,
-  "EnableEffects": true,
-  "FreshWaterAmount": -1,
+  "DeleteMatchingKeysFromPlayerInventoryOnDespawn": true,
   "FuelAmount": -1,
+  "FreshWaterAmount": -1,
   "MaxPresetsPerPlayer": 10,
+  "EnableEffects": true,
+  "Cooldowns": {
+    "SpawnCarSeconds": 3600.0,
+    "FetchCarSeconds": 600.0,
+    "LoadPresetSeconds": 3600.0,
+    "FixCarSeconds": 3600.0
+  },
   "Presets": []
 }
 ```
 
-- `CanDespawnWhileOccupied` (`true` or `false`) -- Whether to allow players to use `mycar destroy` while their car is occupied. If `true`, despawning a car will safely eject players from seating and flatbed modules.
-- `CanFetchWhileOccupied` (`true` or `false`) -- Whether to allow players to fetch their car while it's occupied. If `true`, fetchinig a car will safely eject players from seating and flatbed modules if `DismountPlayersOnFetch` is `true`, else those players will be teleported with the car.
-- `CanFetchWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to fetch their car while they are building blocked. Recommended to be set to `false` to avoid exploits where people use the car to get through a wall.
 - `CanSpawnWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to spawn their car while they are building blocked. Recommended to be set to `false` to avoid exploits where people use the car to get through a wall.
-- `Cooldowns` -- Various cooldowns for balancing. These were primarily implemented to prevent spamming, so they are not currently tracked across plugin reloads or server restarts, so setting them very high (e.g., hours or days) may not always work as intended.
-- `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the owner player's inventory when they use `mycar destroy`. Also applies to when they use `mycar load` and the lock is removed because the preset contains no cockpit modules. I recommend this be set to `true`, especially if you are allowing players to use the automatic key lock feature since that spawns keys which may otherwise clutter the player's inventory.
+- `CanFetchWhileBuildingBlocked` (`true` or `false`) -- Whether to allow players to fetch their car while they are building blocked. Recommended to be set to `false` to avoid exploits where people use the car to get through a wall.
+- `CanFetchWhileOccupied` (`true` or `false`) -- Whether to allow players to fetch their car while it's occupied. If `true`, fetchinig a car will safely eject players from seating and flatbed modules if `DismountPlayersOnFetch` is `true`, else those players will be teleported with the car.
+- `CanDespawnWhileOccupied` (`true` or `false`) -- Whether to allow players to use `mycar destroy` while their car is occupied. If `true`, despawning a car will safely eject players from seating and flatbed modules.
 - `DismountPlayersOnFetch` (`true` or `false`) -- Whether to dismount all players from a car when it is fetched. Has no effect unless `CanFetchWhileOccupied` is also `true`.
-- `EnableEffects` (`true` or `false`) -- Enable audio and visual effects when spawning a car from a preset, using `mycar fix` or `mycar load`.
-- `FreshWaterAmount` -- The amount of fresh water to add to each of the car's tanker modules when spawning. Only applies if the player has the `spawnmodularcar.autofilltankers` permission and has the AutoFillTankers setting on. Defaults to `-1` which represents maximum stack size. Note: If for some reason the car has multiple tankers (i.e., no other modules), this amount will be added to each one.
+- `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the owner player's inventory when they use `mycar destroy`. Also applies to when they use `mycar load` and the lock is removed because the preset contains no cockpit modules. I recommend this be set to `true`, especially if you are allowing players to use the automatic key lock feature since that spawns keys which may otherwise clutter the player's inventory.
 - `FuelAmount` -- The amount of low grade fuel to add to the fuel tank when spawning. Only applies if the player has the `spawnmodularcar.autofuel` permission. When fixing the car or loading a preset, only the amount missing will be added to reach this minimum target value. Defaults to `-1` which represents maximum stack size.
+- `FreshWaterAmount` -- The amount of fresh water to add to each of the car's tanker modules when spawning. Only applies if the player has the `spawnmodularcar.autofilltankers` permission and has the AutoFillTankers setting on. Defaults to `-1` which represents maximum stack size. Note: If for some reason the car has multiple tankers (i.e., no other modules), this amount will be added to each one.
 - `MaxPresetsPerPlayer` -- The maximum number of module configuration presets each player is allowed to save.
+- `EnableEffects` (`true` or `false`) -- Enable audio and visual effects when spawning a car from a preset, using `mycar fix` or `mycar load`.
+- `Cooldowns` -- Various cooldowns for balancing. These were primarily implemented to prevent spamming, so they are not currently tracked across plugin reloads or server restarts, so setting them very high (e.g., hours or days) may not always work as intended.
 
 ### Server presets
 
@@ -195,7 +195,7 @@ Here are all of the available options you can define per preset. The only requir
 - `Modules` -- List of module item ids or short names that will be added to the car automatically. The number `0` represents an empty socket. Item names and ids can be found on the [uMod item list page](https://umod.org/documentation/games/rust/definitions).
   - Previously this field was named `ModuleIDs`. That name still works for backwards compatibility but it only accepts ids.
 - `CodeLock` (`true` or `false`) -- Whether to deploy a code lock to the car.
-- `KeyLock` (`true` or `false`) -- Whether to create a key lock on the car and add a matching key to the player's inventory.
+- `KeyLock` (`true` or `false`) -- Whether to create a normal car lock and add a matching key to the player's inventory.
 - `EnginePartsTier` (`0` - `3`) -- The quality of engine components to automatically add to all engine modules (`0` for no engine components).
 - `FuelAmount` -- The amount of fuel to put in the fuel tank (`-1` for max).
 - `FreshWaterAmount` -- The amount of fresh water to add to each tanker module if applicable (`-1` for max).
