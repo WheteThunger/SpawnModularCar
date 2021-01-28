@@ -2196,23 +2196,23 @@ namespace Oxide.Plugins
         {
             private int _enginePartsTier = 0;
 
-            [JsonProperty("CodeLock")]
+            [JsonProperty("CodeLock", DefaultValueHandling = DefaultValueHandling.Ignore)]
             public bool CodeLock = false;
 
-            [JsonProperty("EnginePartsTier")]
+            [JsonProperty("EnginePartsTier", DefaultValueHandling = DefaultValueHandling.Ignore)]
             public int EnginePartsTier
             {
                 get { return _enginePartsTier; }
                 set { _enginePartsTier = Clamp(value, 0, 3); }
             }
 
-            [JsonProperty("FreshWaterAmount")]
+            [JsonProperty("FreshWaterAmount", DefaultValueHandling = DefaultValueHandling.Ignore)]
             public int FreshWaterAmount = 0;
 
-            [JsonProperty("FuelAmount")]
+            [JsonProperty("FuelAmount", DefaultValueHandling = DefaultValueHandling.Ignore)]
             public int FuelAmount = 0;
 
-            [JsonProperty("KeyLock")]
+            [JsonProperty("KeyLock", DefaultValueHandling = DefaultValueHandling.Ignore)]
             public bool KeyLock = false;
 
             [JsonIgnore]
