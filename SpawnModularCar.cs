@@ -25,9 +25,9 @@ namespace Oxide.Plugins
         private Plugin CarCodeLocks, VehicleDeployedLocks;
 
         private static SpawnModularCar _pluginInstance;
+        private static Configuration _pluginConfig;
 
         private PluginData _pluginData;
-        private Configuration _pluginConfig;
 
         private const string DefaultPresetName = "default";
         private const int PresetMaxLength = 30;
@@ -107,11 +107,6 @@ namespace Oxide.Plugins
 
         private readonly Dictionary<string, PlayerConfig> _playerConfigsMap = new Dictionary<string, PlayerConfig>();
 
-        private CooldownManager _spawnCarCooldowns;
-        private CooldownManager _fixCarCooldowns;
-        private CooldownManager _fetchCarCooldowns;
-        private CooldownManager _loadPresetCooldowns;
-
         #endregion
 
         #region Hooks
@@ -145,21 +140,18 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermissionPresetLoad, this);
             permission.RegisterPermission(PermissionCommonPresets, this);
             permission.RegisterPermission(PermissionManageCommonPresets, this);
-
-            _spawnCarCooldowns = new CooldownManager(_pluginConfig.Cooldowns.SpawnSeconds);
-            _fixCarCooldowns = new CooldownManager(_pluginConfig.Cooldowns.FixSeconds);
-            _fetchCarCooldowns = new CooldownManager(_pluginConfig.Cooldowns.FetchSeconds);
-            _loadPresetCooldowns = new CooldownManager(_pluginConfig.Cooldowns.LoadPresetSeconds);
         }
 
         private void Unload()
         {
             _pluginInstance = null;
+            _pluginConfig = null;
         }
 
         private void OnNewSave(string filename)
         {
             _pluginData.playerCars.Clear();
+            _pluginData.Cooldowns.ClearAll();
             _pluginData.SaveData();
         }
 
@@ -558,7 +550,7 @@ namespace Oxide.Plugins
             }
 
             if (!VerifyHasNoCar(player)
-                || !VerifyOffCooldown(_spawnCarCooldowns, player)
+                || !VerifyOffCooldown(player, CooldownType.Spawn)
                 || !VerifyLocationNotRestricted(player)
                 || !_pluginConfig.CanSpawnBuildingBlocked && !VerifyNotBuildingBlocked(player))
                 return;
@@ -625,7 +617,7 @@ namespace Oxide.Plugins
 
             if (!VerifyPermissionAny(player, PermissionCommonPresets)
                 || !VerifyHasNoCar(player)
-                || !VerifyOffCooldown(_spawnCarCooldowns, player)
+                || !VerifyOffCooldown(player, CooldownType.Spawn)
                 || !VerifyLocationNotRestricted(player)
                 || !_pluginConfig.CanSpawnBuildingBlocked && !VerifyNotBuildingBlocked(player))
                 return;
@@ -646,7 +638,7 @@ namespace Oxide.Plugins
 
             ModularCar car;
             if (!VerifyHasCar(player, out car)
-                || !VerifyOffCooldown(_fixCarCooldowns, player)
+                || !VerifyOffCooldown(player, CooldownType.Fix)
                 || FixMyCarWasBlocked(player.Object as BasePlayer, car))
                 return;
 
@@ -655,7 +647,7 @@ namespace Oxide.Plugins
 
             FixCar(car, GetPlayerAllowedFuel(player.Id), GetPlayerEnginePartsTier(player.Id));
             MaybeFillTankerModules(car, GetPlayerAllowedFreshWater(player.Id));
-            _fixCarCooldowns.UpdateLastUsedForPlayer(player.Id);
+            _pluginData.StartCooldown(player.Id, CooldownType.Fix);
 
             MaybePlayCarRepairEffects(car);
             ReplyToPlayer(player, "Command.Fix.Success");
@@ -673,7 +665,7 @@ namespace Oxide.Plugins
 
             if (!VerifyHasCar(player, out car)
                 || !_pluginConfig.CanFetchOccupied && !VerifyCarNotOccupied(player, car)
-                || !VerifyOffCooldown(_fetchCarCooldowns, player)
+                || !VerifyOffCooldown(player, CooldownType.Fetch)
                 || !VerifyLocationNotRestricted(player)
                 || !_pluginConfig.CanFetchBuildingBlocked && !VerifyNotBuildingBlocked(player)
                 || !VerifySufficientSpace(player, car.TotalSockets, out fetchPosition, out fetchRotation)
@@ -709,7 +701,7 @@ namespace Oxide.Plugins
                     car.rigidBody.maxAngularVelocity = maxAngularVelocity;
             });
 
-            _fetchCarCooldowns.UpdateLastUsedForPlayer(player.Id);
+            _pluginData.StartCooldown(player.Id, CooldownType.Fetch);
             ReplyToPlayer(player, "Command.Fetch.Success");
         }
 
@@ -914,7 +906,7 @@ namespace Oxide.Plugins
 
             if (!VerifyHasCar(player, out car)
                 || !VerifyCarNotOccupied(player, car)
-                || !VerifyOffCooldown(_loadPresetCooldowns, player)
+                || !VerifyOffCooldown(player, CooldownType.Load)
                 || LoadMyCarPresetWasBlocked(basePlayer, car))
                 return;
 
@@ -942,7 +934,7 @@ namespace Oxide.Plugins
             var enginePartsTier = GetPlayerEnginePartsTier(player.Id);
             var extractedEngineParts = ExtractEnginePartsAboveTierAndDeleteRest(car, enginePartsTier);
             UpdateCarModules(car, preset.ModuleIDs);
-            _loadPresetCooldowns.UpdateLastUsedForPlayer(player.Id);
+            _pluginData.StartCooldown(player.Id, CooldownType.Load);
 
             NextTick(() => {
                 var wereExtraParts = false;
@@ -1252,12 +1244,12 @@ namespace Oxide.Plugins
             return true;
         }
 
-        private bool VerifyOffCooldown(CooldownManager cooldownManager, IPlayer player)
+        private bool VerifyOffCooldown(IPlayer player, CooldownType cooldownType)
         {
-            var secondsRemaining = cooldownManager.GetSecondsRemaining(player.Id);
+            var secondsRemaining = _pluginData.GetRemainingCooldownSeconds(player.Id, cooldownType);
             if (secondsRemaining > 0)
             {
-                ReplyToPlayer(player, "Generic.Error.Cooldown", Math.Ceiling(secondsRemaining));
+                ReplyToPlayer(player, "Generic.Error.Cooldown", secondsRemaining);
                 return false;
             }
             return true;
@@ -1543,8 +1535,8 @@ namespace Oxide.Plugins
 
             if (shouldTrackCar)
             {
+                _pluginData.StartCooldown(player.UserIDString, CooldownType.Spawn, save: false);
                 _pluginData.RegisterCar(player.UserIDString, car);
-                _spawnCarCooldowns.UpdateLastUsedForPlayer(player.UserIDString);
             }
 
             // Using invoke because that is what the game uses to delay module entity creation.
@@ -2016,38 +2008,15 @@ namespace Oxide.Plugins
 
         #endregion
 
-        #region Helper Classes
-
-        internal class CooldownManager
-        {
-            private readonly Dictionary<string, float> CooldownMap = new Dictionary<string, float>();
-            private readonly float CooldownDuration;
-
-            public CooldownManager(float duration)
-            {
-                CooldownDuration = duration;
-            }
-
-            public void UpdateLastUsedForPlayer(string userID) =>
-                CooldownMap[userID] = Time.realtimeSinceStartup;
-
-            public float GetSecondsRemaining(string userID)
-            {
-                float duration;
-                return CooldownMap.TryGetValue(userID, out duration)
-                    ? duration + CooldownDuration - Time.realtimeSinceStartup
-                    : 0;
-            }
-        }
-
-        #endregion
-
         #region Data Management
 
         internal class PluginData : SimplePresetManager
         {
             [JsonProperty("playerCars")]
             public Dictionary<string, uint> playerCars = new Dictionary<string, uint>();
+
+            [JsonProperty("Cooldowns")]
+            public CooldownManager Cooldowns = new CooldownManager();
 
             public override void SaveData()
             {
@@ -2065,6 +2034,27 @@ namespace Oxide.Plugins
                 playerCars.Remove(userID);
                 SaveData();
             }
+
+            public long GetRemainingCooldownSeconds(string userId, CooldownType cooldownType)
+            {
+                long cooldownStart;
+                if (!Cooldowns.GetCooldownMap(cooldownType).TryGetValue(userId, out cooldownStart))
+                    return 0;
+
+                var cooldownSeconds = _pluginConfig.Cooldowns.GetSeconds(cooldownType);
+                return cooldownStart + cooldownSeconds - DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            }
+
+            public void StartCooldown(string userId, CooldownType cooldownType, bool save = true)
+            {
+                if (_pluginConfig.Cooldowns.GetSeconds(cooldownType) <= 0)
+                    return;
+
+                Cooldowns.GetCooldownMap(cooldownType)[userId] = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+                if (save)
+                    SaveData();
+            }
         }
 
         private PlayerConfig GetPlayerConfig(IPlayer player) =>
@@ -2078,6 +2068,49 @@ namespace Oxide.Plugins
             PlayerConfig config = PlayerConfig.Get(Name, userID);
             _playerConfigsMap.Add(userID, config);
             return config;
+        }
+
+        internal enum CooldownType { Spawn, Fetch, Load, Fix }
+
+        internal class CooldownManager
+        {
+            [JsonProperty("Spawn")]
+            private Dictionary<string, long> Spawn = new Dictionary<string, long>();
+
+            [JsonProperty("Fetch")]
+            private Dictionary<string, long> Fetch = new Dictionary<string, long>();
+
+            [JsonProperty("LoadPreset")]
+            private Dictionary<string, long> LoadPreset = new Dictionary<string, long>();
+
+            [JsonProperty("Fix")]
+            private Dictionary<string, long> Fix = new Dictionary<string, long>();
+
+            public Dictionary<string, long> GetCooldownMap(CooldownType cooldownType)
+            {
+                switch (cooldownType)
+                {
+                    case CooldownType.Spawn:
+                        return Spawn;
+                    case CooldownType.Fetch:
+                        return Fetch;
+                    case CooldownType.Load:
+                        return LoadPreset;
+                    case CooldownType.Fix:
+                        return Fix;
+                    default:
+                        _pluginInstance.LogWarning($"Cooldown not implemented for {cooldownType}");
+                        return null;
+                }
+            }
+
+            public void ClearAll()
+            {
+                Spawn.Clear();
+                Fetch.Clear();
+                LoadPreset.Clear();
+                Fix.Clear();
+            }
         }
 
         internal abstract class SimplePresetManager
@@ -2398,16 +2431,34 @@ namespace Oxide.Plugins
         internal class CooldownConfig
         {
             [JsonProperty("SpawnCarSeconds")]
-            public float SpawnSeconds = 3600;
+            public long SpawnSeconds = 3600;
 
             [JsonProperty("FetchCarSeconds")]
-            public float FetchSeconds = 600;
+            public long FetchSeconds = 600;
 
             [JsonProperty("LoadPresetSeconds")]
-            public float LoadPresetSeconds = 3600;
+            public long LoadPresetSeconds = 3600;
 
             [JsonProperty("FixCarSeconds")]
-            public float FixSeconds = 3600;
+            public long FixSeconds = 3600;
+
+            public long GetSeconds(CooldownType cooldownType)
+            {
+                switch (cooldownType)
+                {
+                    case CooldownType.Spawn:
+                        return SpawnSeconds;
+                    case CooldownType.Fetch:
+                        return FetchSeconds;
+                    case CooldownType.Load:
+                        return LoadPresetSeconds;
+                    case CooldownType.Fix:
+                        return FixSeconds;
+                    default:
+                        _pluginInstance.LogWarning($"Cooldown not implemented for {cooldownType}");
+                        return 0;
+                }
+            }
         }
 
         private Configuration GetDefaultConfig() => new Configuration();
