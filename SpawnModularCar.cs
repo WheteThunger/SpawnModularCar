@@ -28,6 +28,7 @@ namespace Oxide.Plugins
         private static Configuration _pluginConfig;
 
         private PluginData _pluginData;
+        private CommonPresets _commonPresets;
 
         private const string DefaultPresetName = "default";
         private const int PresetMaxLength = 30;
@@ -115,7 +116,9 @@ namespace Oxide.Plugins
         {
             _pluginInstance = this;
 
-            _pluginData = Interface.Oxide.DataFileSystem.ReadObject<PluginData>(Name);
+            _pluginData = PluginData.LoadData();
+            _commonPresets = CommonPresets.LoadData(_pluginData);
+
             MigrateConfig();
 
             permission.RegisterPermission(PermissionSpawnSockets2, this);
@@ -625,7 +628,7 @@ namespace Oxide.Plugins
             var presetNameArg = args[0];
 
             SimplePreset preset;
-            if (!VerifyOnlyOneMatchingPreset(player, _pluginData, presetNameArg, out preset))
+            if (!VerifyOnlyOneMatchingPreset(player, _commonPresets, presetNameArg, out preset))
                 return;
 
             SpawnPresetCarForPlayer(player, preset);
@@ -760,7 +763,7 @@ namespace Oxide.Plugins
             if (!VerifyPermissionAny(player, PermissionCommonPresets))
                 return;
 
-            if (_pluginData.Presets.Count == 0)
+            if (_commonPresets.Presets.Count == 0)
             {
                 ReplyToPlayer(player, "Generic.Error.NoCommonPresets");
                 return;
@@ -768,7 +771,7 @@ namespace Oxide.Plugins
 
             ushort maxAllowedSockets = GetPlayerMaxAllowedCarSockets(player.Id);
 
-            var presetList = _pluginData.Presets.Where(p => p.NumSockets <= maxAllowedSockets).ToList();
+            var presetList = _commonPresets.Presets.Where(p => p.NumSockets <= maxAllowedSockets).ToList();
             presetList.Sort(SortPresetNames);
 
             var sb = new StringBuilder();
@@ -819,10 +822,10 @@ namespace Oxide.Plugins
 
             ModularCar car;
             if (!VerifyHasCar(player, out car)
-                || !VerifyNoMatchingPreset(player, _pluginData, presetNameArg))
+                || !VerifyNoMatchingPreset(player, _commonPresets, presetNameArg))
                 return;
 
-            SavePreset(player, _pluginData, presetNameArg, car);
+            SavePreset(player, _commonPresets, presetNameArg, car);
         }
 
         private void SavePreset(IPlayer player, SimplePresetManager presetManager, string presetNameArg, ModularCar car)
@@ -857,7 +860,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            UpdatePreset(player, _pluginData, args[0]);
+            UpdatePreset(player, _commonPresets, args[0]);
         }
 
         private void UpdatePreset(IPlayer player, SimplePresetManager presetManager, string presetNameArg)
@@ -896,7 +899,7 @@ namespace Oxide.Plugins
             }
 
             var presetNameArg = args[0];
-            LoadPreset(player, _pluginData, presetNameArg);
+            LoadPreset(player, _commonPresets, presetNameArg);
         }
 
         private void LoadPreset(IPlayer player, SimplePresetManager presetManager, string presetNameArg)
@@ -998,7 +1001,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            RenamePreset(player, _pluginData, args[0], args[1]);
+            RenamePreset(player, _commonPresets, args[0], args[1]);
         }
 
         private void RenamePreset(IPlayer player, SimplePresetManager presetManager, string oldName, string newName)
@@ -1049,7 +1052,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            DeletePreset(player, _pluginData, args[0]);
+            DeletePreset(player, _commonPresets, args[0]);
         }
 
         private void DeletePreset(IPlayer player, SimplePresetManager presetManager, string presetNameArg)
@@ -2018,6 +2021,12 @@ namespace Oxide.Plugins
             [JsonProperty("Cooldowns")]
             public CooldownManager Cooldowns = new CooldownManager();
 
+            public override List<SimplePreset> Presets { get; set; }
+            public bool ShouldSerializePresets() => false;
+
+            public static PluginData LoadData() =>
+                Interface.Oxide.DataFileSystem.ReadObject<PluginData>(_pluginInstance.Name);
+
             public override void SaveData()
             {
                 Interface.Oxide.DataFileSystem.WriteObject(_pluginInstance.Name, this);
@@ -2055,6 +2064,38 @@ namespace Oxide.Plugins
                 if (save)
                     SaveData();
             }
+        }
+
+        internal class CommonPresets : SimplePresetManager
+        {
+            private static string Filename =>
+                $"{_pluginInstance.Name}_CommonPresets";
+
+            public static CommonPresets LoadData(PluginData pluginData)
+            {
+                var data = Interface.Oxide.DataFileSystem.ReadObject<CommonPresets>(Filename);
+
+                if (pluginData.Presets != null)
+                {
+                    if (data.Presets == null || data.Presets.Count == 0)
+                    {
+                        _pluginInstance.LogWarning($"Migrating common presets to separate data file: {Filename}.json.");
+                        data.Presets = pluginData.Presets.ToList();
+                        data.SaveData();
+                    }
+                    else
+                    {
+                        _pluginInstance.LogWarning($"Deleting common presets from main data file since they appear to have already been migrated to a separate data file: {Filename}.json.");
+                    }
+                    pluginData.Presets.Clear();
+                    pluginData.SaveData();
+                }
+
+                return data;
+            }
+
+            public override void SaveData() =>
+                Interface.Oxide.DataFileSystem.WriteObject(Filename, this);
         }
 
         private PlayerConfig GetPlayerConfig(IPlayer player) =>
@@ -2119,7 +2160,7 @@ namespace Oxide.Plugins
                 new Func<SimplePreset, bool>(preset => preset.Name.Equals(presetName, StringComparison.CurrentCultureIgnoreCase));
 
             [JsonProperty("Presets")]
-            public List<SimplePreset> Presets = new List<SimplePreset>();
+            public virtual List<SimplePreset> Presets { get; set; } = new List<SimplePreset>();
 
             public SimplePreset FindPreset(string presetName) =>
                 Presets.FirstOrDefault(MatchPresetName(presetName));
