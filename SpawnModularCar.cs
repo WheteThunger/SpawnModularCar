@@ -1103,13 +1103,13 @@ namespace Oxide.Plugins
 
         #region Helper Methods - Command Checks
 
-        private bool SpawnWasBlocked(BasePlayer player)
+        private static bool SpawnWasBlocked(BasePlayer player)
         {
             object hookResult = Interface.CallHook("CanSpawnModularCar", player);
-            return (hookResult is bool && (bool)hookResult == false);
+            return hookResult is bool && (bool)hookResult == false;
         }
 
-        private bool SpawnMyCarWasBlocked(BasePlayer player)
+        private static bool SpawnMyCarWasBlocked(BasePlayer player)
         {
             if (SpawnWasBlocked(player))
                 return true;
@@ -1118,25 +1118,25 @@ namespace Oxide.Plugins
             return hookResult is bool && (bool)hookResult == false;
         }
 
-        private bool FetchMyCarWasBlocked(BasePlayer player, ModularCar car)
+        private static bool FetchMyCarWasBlocked(BasePlayer player, ModularCar car)
         {
             object hookResult = Interface.CallHook("CanFetchMyCar", player, car);
             return hookResult is bool && (bool)hookResult == false;
         }
 
-        private bool FixMyCarWasBlocked(BasePlayer player, ModularCar car)
+        private static bool FixMyCarWasBlocked(BasePlayer player, ModularCar car)
         {
             object hookResult = Interface.CallHook("CanFixMyCar", player, car);
             return hookResult is bool && (bool)hookResult == false;
         }
 
-        private bool LoadMyCarPresetWasBlocked(BasePlayer player, ModularCar car)
+        private static bool LoadMyCarPresetWasBlocked(BasePlayer player, ModularCar car)
         {
             object hookResult = Interface.CallHook("CanLoadMyCarPreset", player, car);
             return hookResult is bool && (bool)hookResult == false;
         }
 
-        private bool DestroyMyCarWasBlocked(BasePlayer player, ModularCar car)
+        private static bool DestroyMyCarWasBlocked(BasePlayer player, ModularCar car)
         {
             object hookResult = Interface.CallHook("CanDestroyMyCar", player, car);
             return hookResult is bool && (bool)hookResult == false;
@@ -1286,15 +1286,12 @@ namespace Oxide.Plugins
 
         #region Helper Methods - Cars
 
-        private bool IsPlayerCar(ModularCar car) =>
-            _pluginData.PlayerCars.ContainsValue(car.net.ID);
-
-        private int SortPresetNames(SimplePreset a, SimplePreset b) =>
+        private static int SortPresetNames(SimplePreset a, SimplePreset b) =>
             a.Name.ToLower() == DefaultPresetName ? -1 :
             b.Name.ToLower() == DefaultPresetName ? 1 :
             a.Name.CompareTo(b.Name);
 
-        private Vector3 GetCarExtents(int numSockets)
+        private static Vector3 GetCarExtents(int numSockets)
         {
             switch (numSockets)
             {
@@ -1307,7 +1304,7 @@ namespace Oxide.Plugins
             }
         }
 
-        private void GetCarFrontBack(int numSockets, out Vector3 frontLeft, out Vector3 frontRight, out Vector3 backLeft, out Vector3 backRight)
+        private static void GetCarFrontBack(int numSockets, out Vector3 frontLeft, out Vector3 frontRight, out Vector3 backLeft, out Vector3 backRight)
         {
             switch (numSockets)
             {
@@ -1332,22 +1329,7 @@ namespace Oxide.Plugins
             }
         }
 
-        private ModularCar FindPlayerCar(IPlayer player)
-        {
-            if (!_pluginData.PlayerCars.ContainsKey(player.Id))
-                return null;
-
-            var car = BaseNetworkable.serverEntities.Find(_pluginData.PlayerCars[player.Id]) as ModularCar;
-
-            // Just in case the car was removed and that somehow wasn't detected sooner.
-            // This could happen if the data file somehow got out of sync for instance.
-            if (car == null)
-                _pluginData.UnregisterCar(player.Id);
-
-            return car;
-        }
-
-        private int[] GetCarModuleIDs(ModularCar car)
+        private static int[] GetCarModuleIDs(ModularCar car)
         {
             var moduleIDs = new List<int>();
 
@@ -1364,7 +1346,7 @@ namespace Oxide.Plugins
             return moduleIDs.ToArray();
         }
 
-        private Vector3 GetPlayerForwardPosition(BasePlayer player)
+        private static Vector3 GetPlayerForwardPosition(BasePlayer player)
         {
             Vector3 forward = player.GetNetworkRotation() * Vector3.forward;
             forward.y = 0;
@@ -1372,7 +1354,7 @@ namespace Oxide.Plugins
         }
 
         // Directly in front of the player.
-        private Vector3 GetFixedCarPosition(BasePlayer player)
+        private static Vector3 GetFixedCarPosition(BasePlayer player)
         {
             Vector3 forward = GetPlayerForwardPosition(player);
             Vector3 position = player.transform.position + forward * 3f;
@@ -1381,7 +1363,7 @@ namespace Oxide.Plugins
         }
 
         // On surface in front of player.
-        private bool TryGetIdealCarPositionAndRotation(BasePlayer player, int numSockets, out Vector3 position, out Quaternion rotation)
+        private static bool TryGetIdealCarPositionAndRotation(BasePlayer player, int numSockets, out Vector3 position, out Quaternion rotation)
         {
             var carMiddle = player.eyes.position + GetPlayerForwardPosition(player) * ForwardRaycastDistance;
 
@@ -1411,6 +1393,406 @@ namespace Oxide.Plugins
             return true;
         }
 
+        private static Quaternion GetRelativeCarRotation(BasePlayer player) =>
+            Quaternion.Euler(0, player.GetNetworkRotation().eulerAngles.y - 90, 0);
+
+        private static void AddInitialModules(ModularCar car, int[] ModuleIDs)
+        {
+            for (int socketIndex = 0; socketIndex < car.TotalSockets; socketIndex++)
+            {
+                var desiredItemID = ModuleIDs[socketIndex];
+
+                // We are using 0 to represent an empty socket which we skip.
+                if (desiredItemID != 0)
+                {
+                    var moduleItem = ItemManager.CreateByItemID(desiredItemID);
+                    if (moduleItem != null)
+                        car.TryAddModule(moduleItem, socketIndex);
+                }
+            }
+        }
+
+        private static void UpdateCarModules(ModularCar car, int[] moduleIDs)
+        {
+            // Phase 1: Remove all modules that don't match the desired preset.
+            // This is done first since some modules take up two sockets.
+            for (int socketIndex = 0; socketIndex < car.TotalSockets; socketIndex++)
+            {
+                var desiredItemID = moduleIDs[socketIndex];
+                var existingItem = car.Inventory.ModuleContainer.GetSlot(socketIndex);
+
+                if (existingItem != null && existingItem.info.itemid != desiredItemID)
+                {
+                    existingItem.RemoveFromContainer();
+                    existingItem.Remove();
+                }
+            }
+
+            // Phase 2: Add the modules that are missing.
+            for (int socketIndex = 0; socketIndex < car.TotalSockets; socketIndex++)
+            {
+                var desiredItemID = moduleIDs[socketIndex];
+                var existingItem = car.Inventory.ModuleContainer.GetSlot(socketIndex);
+
+                // We are using 0 to represent an empty socket which we skip.
+                if (existingItem == null && desiredItemID != 0)
+                {
+                    var moduleItem = ItemManager.CreateByItemID(desiredItemID);
+                    if (moduleItem != null)
+                        car.TryAddModule(moduleItem, socketIndex);
+                }
+            }
+        }
+
+        private static List<Item> AddEngineItemsAndReturnRemaining(ModularCar car, List<Item> engineItems)
+        {
+            var itemsByType = engineItems
+                .GroupBy(item => item.info.GetComponent<ItemModEngineItem>().engineItemType)
+                .ToDictionary(
+                    grouping => grouping.Key,
+                    grouping => grouping.OrderByDescending(item => item.info.GetComponent<ItemModEngineItem>().tier).ToList()
+                );
+
+            foreach (var module in car.AttachedModuleEntities)
+            {
+                var engineStorage = (module as VehicleModuleEngine)?.GetContainer() as EngineStorage;
+                if (engineStorage == null)
+                    continue;
+
+                for (var slotIndex = 0; slotIndex < engineStorage.inventory.capacity; slotIndex++)
+                {
+                    var engineItemType = engineStorage.slotTypes[slotIndex];
+                    if (!itemsByType.ContainsKey(engineItemType))
+                        continue;
+
+                    var itemsOfType = itemsByType[engineItemType];
+                    var existingItem = engineStorage.inventory.GetSlot(slotIndex);
+                    if (existingItem != null || itemsOfType.Count == 0)
+                        continue;
+
+                    itemsOfType[0].MoveToContainer(engineStorage.inventory, slotIndex, allowStack: false);
+                    itemsOfType.RemoveAt(0);
+                }
+            }
+
+            return itemsByType.Values.SelectMany(x => x).ToList();
+        }
+
+        private static void AddUpgradeOrRepairEngineParts(EngineStorage engineStorage, int desiredTier)
+        {
+            var inventory = engineStorage.inventory;
+            if (inventory == null)
+                return;
+
+            // Ignore if the engine storage is locked, since it must be controlled by another plugin.
+            if (inventory.IsLocked())
+                return;
+
+            for (var i = 0; i < inventory.capacity; i++)
+            {
+                var item = inventory.GetSlot(i);
+                if (item != null)
+                {
+                    var component = item.info.GetComponent<ItemModEngineItem>();
+                    if (component != null && component.tier < desiredTier)
+                    {
+                        item.RemoveFromContainer();
+                        item.Remove();
+                        TryAddEngineItem(engineStorage, i, desiredTier);
+                    }
+                    else
+                        item.condition = item.maxCondition;
+                }
+                else if (desiredTier > 0)
+                    TryAddEngineItem(engineStorage, i, desiredTier);
+            }
+        }
+
+        private static bool TryAddEngineItem(EngineStorage engineStorage, int slot, int tier)
+        {
+            ItemModEngineItem output;
+            if (!engineStorage.allEngineItems.TryGetItem(tier, engineStorage.slotTypes[slot], out output))
+                return false;
+
+            var component = output.GetComponent<ItemDefinition>();
+            var item = ItemManager.Create(component);
+            if (item == null)
+                return false;
+
+            item.condition = component.condition.max;
+            item.MoveToContainer(engineStorage.inventory, slot, allowStack: false);
+
+            return true;
+        }
+
+        private static List<Item> ExtractEnginePartsAboveTierAndDeleteRest(ModularCar car, int tier)
+        {
+            var extractedEngineParts = new List<Item>();
+
+            foreach (var module in car.AttachedModuleEntities)
+            {
+                var engineStorage = (module as VehicleModuleEngine)?.GetContainer() as EngineStorage;
+                if (engineStorage == null)
+                    continue;
+
+                var inventory = engineStorage.inventory;
+
+                // Ignore if the engine storage is locked, since it must be controlled by another plugin.
+                if (inventory.IsLocked())
+                    continue;
+
+                for (var i = 0; i < inventory.capacity; i++)
+                {
+                    var item = inventory.GetSlot(i);
+                    if (item == null)
+                        continue;
+
+                    var component = item.info.GetComponent<ItemModEngineItem>();
+                    if (component == null)
+                        continue;
+
+                    item.RemoveFromContainer();
+
+                    if (component.tier > tier)
+                        extractedEngineParts.Add(item);
+                    else
+                        item.Remove();
+                }
+            }
+
+            return extractedEngineParts;
+        }
+
+        private static void GiveItemsToPlayerOrDrop(BasePlayer player, List<Item> itemList)
+        {
+            var itemsToDrop = new List<Item>();
+
+            foreach (var item in itemList)
+                if (!player.inventory.GiveItem(item))
+                    itemsToDrop.Add(item);
+
+            if (itemsToDrop.Count > 0)
+                DropEngineParts(player, itemsToDrop);
+        }
+
+        private static void DropEngineParts(BasePlayer player, List<Item> itemList)
+        {
+            if (itemList.Count == 0)
+                return;
+
+            var position = player.GetDropPosition();
+            if (itemList.Count == 1)
+            {
+                itemList[0].Drop(position, player.GetDropVelocity());
+                return;
+            }
+
+            var container = GameManager.server.CreateEntity(ItemDropPrefab, position, player.GetNetworkRotation()) as DroppedItemContainer;
+            if (container == null)
+                return;
+
+            container.playerName = $"{player.displayName}'s Engine Parts";
+
+            // 4 large engines * 8 parts (each damaged) = 32 max engine parts.
+            // This fits within the standard max size of 36.
+            var capacity = Math.Min(itemList.Count, container.maxItemCount);
+
+            container.inventory = new ItemContainer();
+            container.inventory.ServerInitialize(null, capacity);
+            container.inventory.GiveUID();
+            container.inventory.entityOwner = container;
+            container.inventory.SetFlag(ItemContainer.Flag.NoItemInput, true);
+
+            foreach (var item in itemList)
+                if (!item.MoveToContainer(container.inventory))
+                    item.DropAndTossUpwards(position);
+
+            container.ResetRemovalTime();
+            container.SetVelocity(player.GetDropVelocity());
+            container.Spawn();
+        }
+
+        private static void FixCar(ModularCar car, int fuelAmount, int enginePartsTier)
+        {
+            car.SetHealth(car.MaxHealth());
+            car.SendNetworkUpdate();
+            AddOrRestoreFuel(car, fuelAmount);
+
+            foreach (var module in car.AttachedModuleEntities)
+            {
+                module.SetHealth(module.MaxHealth());
+                module.SendNetworkUpdate();
+
+                var engineModule = module as VehicleModuleEngine;
+                if (engineModule != null)
+                {
+                    var engineStorage = engineModule.GetContainer() as EngineStorage;
+                    AddUpgradeOrRepairEngineParts(engineStorage, enginePartsTier);
+                    engineModule.RefreshPerformanceStats(engineStorage);
+                }
+            }
+        }
+
+        private static void ReviveCar(ModularCar car)
+        {
+            car.lifestate = BaseCombatEntity.LifeState.Alive;
+            car.repair.enabled = true;
+
+            foreach (var module in car.AttachedModuleEntities)
+                module.repair.enabled = true;
+        }
+
+        private static void AddOrRestoreFuel(ModularCar car, int specifiedFuelAmount)
+        {
+            var fuelContainer = car.fuelSystem.GetFuelContainer();
+            var targetFuelAmount = specifiedFuelAmount == -1 ? fuelContainer.allowedItem.stackable : specifiedFuelAmount;
+            if (targetFuelAmount == 0)
+                return;
+
+            var fuelItem = fuelContainer.inventory.FindItemByItemID(fuelContainer.allowedItem.itemid);
+            if (fuelItem == null)
+            {
+                fuelContainer.inventory.AddItem(fuelContainer.allowedItem, targetFuelAmount);
+            }
+            else if (fuelItem.amount < targetFuelAmount)
+            {
+                fuelItem.amount = targetFuelAmount;
+                fuelItem.MarkDirty();
+            }
+        }
+
+        private static bool TryReleaseCarFromLift(ModularCar car)
+        {
+            RaycastHit hitInfo;
+            // This isn't perfect as it can hit other deployables such as rugs.
+            if (!Physics.SphereCast(car.transform.position + Vector3.up, 1f, Vector3.down, out hitInfo, 1f))
+                return false;
+
+            var lift = RaycastHitEx.GetEntity(hitInfo) as ModularCarGarage;
+            if (lift == null || lift.carOccupant != car)
+                return false;
+
+            // Disable the lift for a bit, to prevent it from grabbing the car back.
+            lift.enabled = false;
+            lift.ReleaseOccupant();
+            lift.Invoke(() => lift.enabled = true, 0.5f);
+
+            return true;
+        }
+
+        private static void DismountAllPlayersFromCar(ModularCar car)
+        {
+            // Dismount seated players.
+            if (car.AnyMounted())
+                car.DismountAllPlayers();
+
+            // Dismount players standing on flatbed modules.
+            foreach (var module in car.AttachedModuleEntities)
+                foreach (var child in module.children.ToList())
+                    if (child is BasePlayer)
+                        (child as BasePlayer).SetParent(null, worldPositionStays: true);
+        }
+
+        private static bool TryAddKeyLockForPlayer(ModularCar car, BasePlayer player)
+        {
+            if (car.carLock.HasALock || !car.carLock.CanHaveALock())
+                return false;
+
+            car.carLock.AddALock();
+            car.carLock.TryCraftAKey(player, free: true);
+            return true;
+        }
+
+        private static void MaybeRemoveMatchingKeysFromPlayer(BasePlayer player, ModularCar car)
+        {
+            if (_pluginConfig.DeleteKeyOnDespawn && car.carLock.HasALock)
+            {
+                var matchingKeys = player.inventory.FindItemIDs(car.carKeyDefinition.itemid)
+                    .Where(key => key.instanceData != null && key.instanceData.dataInt == car.carLock.LockID);
+
+                foreach (var key in matchingKeys)
+                    key.Remove();
+            }
+        }
+
+        private static void MaybeFillTankerModules(ModularCar car, int specifiedLiquidAmount)
+        {
+            if (specifiedLiquidAmount == 0)
+                return;
+
+            foreach (var module in car.AttachedModuleEntities)
+            {
+                var liquidContainer = (module as VehicleModuleStorage)?.GetContainer() as LiquidContainer;
+                if (liquidContainer == null)
+                    continue;
+
+                if (FillLiquidContainer(liquidContainer, specifiedLiquidAmount) && _pluginConfig.EnableEffects)
+                    Effect.server.Run(TankerFilledEffectPrefab, module.transform.position);
+            }
+        }
+
+        private static bool FillLiquidContainer(LiquidContainer liquidContainer, int specifiedAmount)
+        {
+            var targetAmount = specifiedAmount == -1 ? liquidContainer.maxStackSize : specifiedAmount;
+            var defaultItem = liquidContainer.defaultLiquid;
+            var existingItem = liquidContainer.GetLiquidItem();
+
+            if (existingItem == null)
+            {
+                liquidContainer.inventory.AddItem(defaultItem, targetAmount);
+                return true;
+            }
+
+            if (existingItem.info.itemid != defaultItem.itemid)
+            {
+                // Remove other liquid such as salt water.
+                existingItem.RemoveFromContainer();
+                existingItem.Remove();
+                liquidContainer.inventory.AddItem(defaultItem, targetAmount);
+                return true;
+            }
+
+            if (existingItem.amount >= targetAmount)
+                // Nothing added in this case.
+                return false;
+
+            existingItem.amount = targetAmount;
+            existingItem.MarkDirty();
+            return true;
+        }
+
+        private static void MaybePlayCarRepairEffects(ModularCar car)
+        {
+            if (!_pluginConfig.EnableEffects)
+                return;
+
+            if (car.AttachedModuleEntities.Count > 0)
+                foreach (var module in car.AttachedModuleEntities)
+                    Effect.server.Run(RepairEffectPrefab, module.transform.position);
+            else
+                Effect.server.Run(RepairEffectPrefab, car.transform.position);
+        }
+
+        private static int Clamp(int x, int min, int max) => Math.Min(max, Math.Max(min, x));
+
+        private bool IsPlayerCar(ModularCar car) =>
+            _pluginData.PlayerCars.ContainsValue(car.net.ID);
+
+        private ModularCar FindPlayerCar(IPlayer player)
+        {
+            if (!_pluginData.PlayerCars.ContainsKey(player.Id))
+                return null;
+
+            var car = BaseNetworkable.serverEntities.Find(_pluginData.PlayerCars[player.Id]) as ModularCar;
+
+            // Just in case the car was removed and that somehow wasn't detected sooner.
+            // This could happen if the data file somehow got out of sync for instance.
+            if (car == null)
+                _pluginData.UnregisterCar(player.Id);
+
+            return car;
+        }
+
         private bool HasSufficientSpace(BasePlayer player, int numSockets, Vector3 desiredPosition, Quaternion rotation)
         {
             var carExtents = GetCarExtents(numSockets);
@@ -1423,9 +1805,6 @@ namespace Oxide.Plugins
 
             return Physics.BoxCastNonAlloc(carCenterPoint, carExtents, rotation * Vector3.forward, _boxcastBuffer, rotation, 0.1f, BoxcastLayers, QueryTriggerInteraction.Ignore) == 0;
         }
-
-        private Quaternion GetRelativeCarRotation(BasePlayer player) =>
-            Quaternion.Euler(0, player.GetNetworkRotation().eulerAngles.y - 90, 0);
 
         private int GetPlayerAllowedFreshWater(string userId) =>
             permission.UserHasPermission(userId, PermissionAutoFillTankers) && GetPlayerConfig(userId).Settings.AutoFillTankers ? _pluginConfig.FreshWaterAmount : 0;
@@ -1560,388 +1939,11 @@ namespace Oxide.Plugins
             return car;
         }
 
-        private void AddInitialModules(ModularCar car, int[] ModuleIDs)
-        {
-            for (int socketIndex = 0; socketIndex < car.TotalSockets; socketIndex++)
-            {
-                var desiredItemID = ModuleIDs[socketIndex];
-
-                // We are using 0 to represent an empty socket which we skip.
-                if (desiredItemID != 0)
-                {
-                    var moduleItem = ItemManager.CreateByItemID(desiredItemID);
-                    if (moduleItem != null)
-                        car.TryAddModule(moduleItem, socketIndex);
-                }
-            }
-        }
-
-        private void UpdateCarModules(ModularCar car, int[] moduleIDs)
-        {
-            // Phase 1: Remove all modules that don't match the desired preset.
-            // This is done first since some modules take up two sockets.
-            for (int socketIndex = 0; socketIndex < car.TotalSockets; socketIndex++)
-            {
-                var desiredItemID = moduleIDs[socketIndex];
-                var existingItem = car.Inventory.ModuleContainer.GetSlot(socketIndex);
-
-                if (existingItem != null && existingItem.info.itemid != desiredItemID)
-                {
-                    existingItem.RemoveFromContainer();
-                    existingItem.Remove();
-                }
-            }
-
-            // Phase 2: Add the modules that are missing.
-            for (int socketIndex = 0; socketIndex < car.TotalSockets; socketIndex++)
-            {
-                var desiredItemID = moduleIDs[socketIndex];
-                var existingItem = car.Inventory.ModuleContainer.GetSlot(socketIndex);
-
-                // We are using 0 to represent an empty socket which we skip.
-                if (existingItem == null && desiredItemID != 0)
-                {
-                    var moduleItem = ItemManager.CreateByItemID(desiredItemID);
-                    if (moduleItem != null)
-                        car.TryAddModule(moduleItem, socketIndex);
-                }
-            }
-        }
-
-        private List<Item> AddEngineItemsAndReturnRemaining(ModularCar car, List<Item> engineItems)
-        {
-            var itemsByType = engineItems
-                .GroupBy(item => item.info.GetComponent<ItemModEngineItem>().engineItemType)
-                .ToDictionary(
-                    grouping => grouping.Key,
-                    grouping => grouping.OrderByDescending(item => item.info.GetComponent<ItemModEngineItem>().tier).ToList()
-                );
-
-            foreach (var module in car.AttachedModuleEntities)
-            {
-                var engineStorage = (module as VehicleModuleEngine)?.GetContainer() as EngineStorage;
-                if (engineStorage == null)
-                    continue;
-
-                for (var slotIndex = 0; slotIndex < engineStorage.inventory.capacity; slotIndex++)
-                {
-                    var engineItemType = engineStorage.slotTypes[slotIndex];
-                    if (!itemsByType.ContainsKey(engineItemType))
-                        continue;
-
-                    var itemsOfType = itemsByType[engineItemType];
-                    var existingItem = engineStorage.inventory.GetSlot(slotIndex);
-                    if (existingItem != null || itemsOfType.Count == 0)
-                        continue;
-
-                    itemsOfType[0].MoveToContainer(engineStorage.inventory, slotIndex, allowStack: false);
-                    itemsOfType.RemoveAt(0);
-                }
-            }
-
-            return itemsByType.Values.SelectMany(x => x).ToList();
-        }
-
-        private void AddUpgradeOrRepairEngineParts(EngineStorage engineStorage, int desiredTier)
-        {
-            var inventory = engineStorage.inventory;
-            if (inventory == null)
-                return;
-
-            // Ignore if the engine storage is locked, since it must be controlled by another plugin.
-            if (inventory.IsLocked())
-                return;
-
-            for (var i = 0; i < inventory.capacity; i++)
-            {
-                var item = inventory.GetSlot(i);
-                if (item != null)
-                {
-                    var component = item.info.GetComponent<ItemModEngineItem>();
-                    if (component != null && component.tier < desiredTier)
-                    {
-                        item.RemoveFromContainer();
-                        item.Remove();
-                        TryAddEngineItem(engineStorage, i, desiredTier);
-                    }
-                    else
-                        item.condition = item.maxCondition;
-                }
-                else if (desiredTier > 0)
-                    TryAddEngineItem(engineStorage, i, desiredTier);
-            }
-        }
-
-        private bool TryAddEngineItem(EngineStorage engineStorage, int slot, int tier)
-        {
-            ItemModEngineItem output;
-            if (!engineStorage.allEngineItems.TryGetItem(tier, engineStorage.slotTypes[slot], out output))
-                return false;
-
-            var component = output.GetComponent<ItemDefinition>();
-            var item = ItemManager.Create(component);
-            if (item == null)
-                return false;
-
-            item.condition = component.condition.max;
-            item.MoveToContainer(engineStorage.inventory, slot, allowStack: false);
-
-            return true;
-        }
-
-        private List<Item> ExtractEnginePartsAboveTierAndDeleteRest(ModularCar car, int tier)
-        {
-            var extractedEngineParts = new List<Item>();
-
-            foreach (var module in car.AttachedModuleEntities)
-            {
-                var engineStorage = (module as VehicleModuleEngine)?.GetContainer() as EngineStorage;
-                if (engineStorage == null)
-                    continue;
-
-                var inventory = engineStorage.inventory;
-
-                // Ignore if the engine storage is locked, since it must be controlled by another plugin.
-                if (inventory.IsLocked())
-                    continue;
-
-                for (var i = 0; i < inventory.capacity; i++)
-                {
-                    var item = inventory.GetSlot(i);
-                    if (item == null)
-                        continue;
-
-                    var component = item.info.GetComponent<ItemModEngineItem>();
-                    if (component == null)
-                        continue;
-
-                    item.RemoveFromContainer();
-
-                    if (component.tier > tier)
-                        extractedEngineParts.Add(item);
-                    else
-                        item.Remove();
-                }
-            }
-
-            return extractedEngineParts;
-        }
-
-        private void GiveItemsToPlayerOrDrop(BasePlayer player, List<Item> itemList)
-        {
-            var itemsToDrop = new List<Item>();
-
-            foreach (var item in itemList)
-                if (!player.inventory.GiveItem(item))
-                    itemsToDrop.Add(item);
-
-            if (itemsToDrop.Count > 0)
-                DropEngineParts(player, itemsToDrop);
-        }
-
-        private void DropEngineParts(BasePlayer player, List<Item> itemList)
-        {
-            if (itemList.Count == 0)
-                return;
-
-            var position = player.GetDropPosition();
-            if (itemList.Count == 1)
-            {
-                itemList[0].Drop(position, player.GetDropVelocity());
-                return;
-            }
-
-            var container = GameManager.server.CreateEntity(ItemDropPrefab, position, player.GetNetworkRotation()) as DroppedItemContainer;
-            if (container == null)
-                return;
-
-            container.playerName = $"{player.displayName}'s Engine Parts";
-
-            // 4 large engines * 8 parts (each damaged) = 32 max engine parts.
-            // This fits within the standard max size of 36.
-            var capacity = Math.Min(itemList.Count, container.maxItemCount);
-
-            container.inventory = new ItemContainer();
-            container.inventory.ServerInitialize(null, capacity);
-            container.inventory.GiveUID();
-            container.inventory.entityOwner = container;
-            container.inventory.SetFlag(ItemContainer.Flag.NoItemInput, true);
-
-            foreach (var item in itemList)
-                if (!item.MoveToContainer(container.inventory))
-                    item.DropAndTossUpwards(position);
-
-            container.ResetRemovalTime();
-            container.SetVelocity(player.GetDropVelocity());
-            container.Spawn();
-        }
-
-        private void FixCar(ModularCar car, int fuelAmount, int enginePartsTier)
-        {
-            car.SetHealth(car.MaxHealth());
-            car.SendNetworkUpdate();
-            AddOrRestoreFuel(car, fuelAmount);
-
-            foreach (var module in car.AttachedModuleEntities)
-            {
-                module.SetHealth(module.MaxHealth());
-                module.SendNetworkUpdate();
-
-                var engineModule = module as VehicleModuleEngine;
-                if (engineModule != null)
-                {
-                    var engineStorage = engineModule.GetContainer() as EngineStorage;
-                    AddUpgradeOrRepairEngineParts(engineStorage, enginePartsTier);
-                    engineModule.RefreshPerformanceStats(engineStorage);
-                }
-            }
-        }
-
-        private void ReviveCar(ModularCar car)
-        {
-            car.lifestate = BaseCombatEntity.LifeState.Alive;
-            car.repair.enabled = true;
-
-            foreach (var module in car.AttachedModuleEntities)
-                module.repair.enabled = true;
-        }
-
-        private void AddOrRestoreFuel(ModularCar car, int specifiedFuelAmount)
-        {
-            var fuelContainer = car.fuelSystem.GetFuelContainer();
-            var targetFuelAmount = specifiedFuelAmount == -1 ? fuelContainer.allowedItem.stackable : specifiedFuelAmount;
-            if (targetFuelAmount == 0)
-                return;
-
-            var fuelItem = fuelContainer.inventory.FindItemByItemID(fuelContainer.allowedItem.itemid);
-            if (fuelItem == null)
-            {
-                fuelContainer.inventory.AddItem(fuelContainer.allowedItem, targetFuelAmount);
-            }
-            else if (fuelItem.amount < targetFuelAmount)
-            {
-                fuelItem.amount = targetFuelAmount;
-                fuelItem.MarkDirty();
-            }
-        }
-
-        private bool TryReleaseCarFromLift(ModularCar car)
-        {
-            RaycastHit hitInfo;
-            // This isn't perfect as it can hit other deployables such as rugs.
-            if (!Physics.SphereCast(car.transform.position + Vector3.up, 1f, Vector3.down, out hitInfo, 1f))
-                return false;
-
-            var lift = RaycastHitEx.GetEntity(hitInfo) as ModularCarGarage;
-            if (lift == null || lift.carOccupant != car)
-                return false;
-
-            // Disable the lift for a bit, to prevent it from grabbing the car back.
-            lift.enabled = false;
-            lift.ReleaseOccupant();
-            lift.Invoke(() => lift.enabled = true, 0.5f);
-
-            return true;
-        }
-
-        private void DismountAllPlayersFromCar(ModularCar car)
-        {
-            // Dismount seated players.
-            if (car.AnyMounted())
-                car.DismountAllPlayers();
-
-            // Dismount players standing on flatbed modules.
-            foreach (var module in car.AttachedModuleEntities)
-                foreach (var child in module.children.ToList())
-                    if (child is BasePlayer)
-                        (child as BasePlayer).SetParent(null, worldPositionStays: true);
-        }
-
         private bool ShouldTryAddCodeLockForPlayer(string userId) =>
             permission.UserHasPermission(userId, PermissionAutoCodeLock) && GetPlayerConfig(userId).Settings.AutoCodeLock;
 
         private bool ShouldTryAddKeyLockForPlayer(string userId) =>
             permission.UserHasPermission(userId, PermissionAutoKeyLock) && GetPlayerConfig(userId).Settings.AutoKeyLock;
-
-        private bool TryAddKeyLockForPlayer(ModularCar car, BasePlayer player)
-        {
-            if (car.carLock.HasALock || !car.carLock.CanHaveALock())
-                return false;
-
-            car.carLock.AddALock();
-            car.carLock.TryCraftAKey(player, free: true);
-            return true;
-        }
-
-        private void MaybeRemoveMatchingKeysFromPlayer(BasePlayer player, ModularCar car)
-        {
-            if (_pluginConfig.DeleteKeyOnDespawn && car.carLock.HasALock)
-            {
-                var matchingKeys = player.inventory.FindItemIDs(car.carKeyDefinition.itemid)
-                    .Where(key => key.instanceData != null && key.instanceData.dataInt == car.carLock.LockID);
-
-                foreach (var key in matchingKeys)
-                    key.Remove();
-            }
-        }
-
-        private void MaybeFillTankerModules(ModularCar car, int specifiedLiquidAmount)
-        {
-            if (specifiedLiquidAmount == 0)
-                return;
-
-            foreach (var module in car.AttachedModuleEntities)
-            {
-                var liquidContainer = (module as VehicleModuleStorage)?.GetContainer() as LiquidContainer;
-                if (liquidContainer == null)
-                    continue;
-
-                if (FillLiquidContainer(liquidContainer, specifiedLiquidAmount) && _pluginConfig.EnableEffects)
-                    Effect.server.Run(TankerFilledEffectPrefab, module.transform.position);
-            }
-        }
-
-        private bool FillLiquidContainer(LiquidContainer liquidContainer, int specifiedAmount)
-        {
-            var targetAmount = specifiedAmount == -1 ? liquidContainer.maxStackSize : specifiedAmount;
-            var defaultItem = liquidContainer.defaultLiquid;
-            var existingItem = liquidContainer.GetLiquidItem();
-
-            if (existingItem == null)
-            {
-                liquidContainer.inventory.AddItem(defaultItem, targetAmount);
-                return true;
-            }
-
-            if (existingItem.info.itemid != defaultItem.itemid)
-            {
-                // Remove other liquid such as salt water.
-                existingItem.RemoveFromContainer();
-                existingItem.Remove();
-                liquidContainer.inventory.AddItem(defaultItem, targetAmount);
-                return true;
-            }
-
-            if (existingItem.amount >= targetAmount)
-                // Nothing added in this case.
-                return false;
-
-            existingItem.amount = targetAmount;
-            existingItem.MarkDirty();
-            return true;
-        }
-
-        private void MaybePlayCarRepairEffects(ModularCar car)
-        {
-            if (!_pluginConfig.EnableEffects)
-                return;
-
-            if (car.AttachedModuleEntities.Count > 0)
-                foreach (var module in car.AttachedModuleEntities)
-                    Effect.server.Run(RepairEffectPrefab, module.transform.position);
-            else
-                Effect.server.Run(RepairEffectPrefab, car.transform.position);
-        }
 
         private int[] ValidateModules(object[] moduleArray)
         {
@@ -2006,8 +2008,6 @@ namespace Oxide.Plugins
 
             return moduleIDList.ToArray();
         }
-
-        private static int Clamp(int x, int min, int max) => Math.Min(max, Math.Max(min, x));
 
         #endregion
 
@@ -2241,7 +2241,7 @@ namespace Oxide.Plugins
                 return new SimplePreset
                 {
                     Name = presetName,
-                    ModuleIDs = _pluginInstance.GetCarModuleIDs(car)
+                    ModuleIDs = GetCarModuleIDs(car)
                 };
             }
 
