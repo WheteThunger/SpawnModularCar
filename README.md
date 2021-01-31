@@ -1,14 +1,16 @@
-**SpawnModularCar** allows players to spawn modular cars.
+## Features
 
-- Each player can have one car at a time using `mycar`.
-- Multiple types of presets are supported, including personal presets.
+- Allows players with permission to spawn modular cars.
+- Each player may have one car at a time using the `mycar` command.
+- Cars may spawn ready to drive, depending on the plugin configuration and player permissions.
+- Supports multiple types of presets, including personal presets.
 - API and an admin/server command allow spawning unlimited cars with a variety of options.
 
 ## Recommended related plugins
 - [Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks) - Deploy code locks or key locks to vehicles. Integrates with this plugin to allow automatically deploying code locks to cars spawned by privileged players
 - [Engine Parts Durability](https://umod.org/plugins/engine-parts-durability) - Reduce or disable engine part durability (so they no longer take damage when the car does)
-- [No Engine Parts](https://umod.org/plugins/no-engine-parts) - Allow car engines to work without engine parts. Supports multiple use cases, including super speed
-- [Larger Car Storage](https://umod.org/plugins/larger-car-storage) - Increase capacity of storage modules on cars owned by privileged players
+- [No Engine Parts](https://umod.org/plugins/no-engine-parts) - Allow car engines to work without engine parts
+- [Larger Car Storage](https://umod.org/plugins/larger-car-storage) - Increase capacity of car storage modules
 - [Vehicle Decay Protection](https://umod.org/plugins/vehicle-decay-protection) - Reduce or disable vehicle decay in various situations
 - [Car Spawn Settings](https://umod.org/plugins/car-spawn-settings) - Configure modules, health, fuel, and engine parts that random cars spawn with. Module presets defined in that plugin will also apply when players spawn random cars with this plugin
 - [Craft Car Chassis](https://umod.org/plugins/craft-car-chassis) - Allow players to craft a blank chassis at a car lift
@@ -116,10 +118,10 @@ Misc:
   "MaxPresetsPerPlayer": 10,
   "EnableEffects": true,
   "Cooldowns": {
-    "SpawnCarSeconds": 3600.0,
-    "FetchCarSeconds": 600.0,
-    "LoadPresetSeconds": 3600.0,
-    "FixCarSeconds": 3600.0
+    "SpawnCarSeconds": 3600,
+    "FetchCarSeconds": 600,
+    "LoadPresetSeconds": 3600,
+    "FixCarSeconds": 3600
   },
   "Presets": []
 }
@@ -135,7 +137,7 @@ Misc:
 - `FreshWaterAmount` -- The amount of fresh water to add to each of the car's tanker modules when spawning. Only applies if the player has the `spawnmodularcar.autofilltankers` permission and has the AutoFillTankers setting on. Defaults to `-1` which represents maximum stack size. Note: If for some reason the car has multiple tankers (i.e., no other modules), this amount will be added to each one.
 - `MaxPresetsPerPlayer` -- The maximum number of module configuration presets each player is allowed to save.
 - `EnableEffects` (`true` or `false`) -- Enable audio and visual effects when spawning a car from a preset, using `mycar fix` or `mycar load`.
-- `Cooldowns` -- Various cooldowns for balancing. These were primarily implemented to prevent spamming, so they are not currently tracked across plugin reloads or server restarts, so setting them very high (e.g., hours or days) may not always work as intended.
+- `Cooldowns` -- Various cooldowns for balancing.
 
 ### Server presets
 
@@ -195,7 +197,7 @@ Here are all of the available options you can define per preset. The only requir
 - `Modules` -- List of module item ids or short names that will be added to the car automatically. The number `0` represents an empty socket. Item names and ids can be found on the [uMod item list page](https://umod.org/documentation/games/rust/definitions).
   - Previously this field was named `ModuleIDs`. That name still works for backwards compatibility but it only accepts ids.
 - `CodeLock` (`true` or `false`) -- Whether to deploy a code lock to the car.
-- `KeyLock` (`true` or `false`) -- Whether to create a normal car lock and add a matching key to the player's inventory.
+- `KeyLock` (`true` or `false`) -- Whether to create a key lock and add a matching key to the player's inventory.
 - `EnginePartsTier` (`0` - `3`) -- The quality of engine components to automatically add to all engine modules (`0` for no engine components).
 - `FuelAmount` -- The amount of fuel to put in the fuel tank (`-1` for max).
 - `FreshWaterAmount` -- The amount of fresh water to add to each tanker module if applicable (`-1` for max).
