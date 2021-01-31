@@ -104,7 +104,7 @@ namespace Oxide.Plugins
         private static readonly float ForwardRaycastDistance = 1.5f + ShortCarExtents.x;
         private const float DownwardRaycastDistance = 4;
 
-        private readonly RaycastHit[] _boxcastBuffer = new RaycastHit[1];
+        private readonly RaycastHit[] _raycastBuffer = new RaycastHit[1];
 
         private readonly Dictionary<string, PlayerConfig> _playerConfigsMap = new Dictionary<string, PlayerConfig>();
 
@@ -1661,15 +1661,10 @@ namespace Oxide.Plugins
             }
         }
 
-        private static bool TryReleaseCarFromLift(ModularCar car)
+        private bool TryReleaseCarFromLift(ModularCar car)
         {
-            RaycastHit hitInfo;
-            // This isn't perfect as it can hit other deployables such as rugs.
-            if (!Physics.SphereCast(car.transform.position + Vector3.up, 1f, Vector3.down, out hitInfo, 1f))
-                return false;
-
-            var lift = RaycastHitEx.GetEntity(hitInfo) as ModularCarGarage;
-            if (lift == null || lift.carOccupant != car)
+            ModularCarGarage lift;
+            if (!TryFindCarLift(car, out lift))
                 return false;
 
             // Disable the lift for a bit, to prevent it from grabbing the car back.
@@ -1678,6 +1673,26 @@ namespace Oxide.Plugins
             lift.Invoke(() => lift.enabled = true, 0.5f);
 
             return true;
+        }
+
+        private bool TryFindCarLift(ModularCar car, out ModularCarGarage lift)
+        {
+            if (Physics.RaycastNonAlloc(car.transform.position, car.transform.right, _raycastBuffer, 2, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) > 0)
+            {
+                lift = _raycastBuffer[0].GetEntity() as ModularCarGarage;
+                if (lift != null && lift.carOccupant == car)
+                    return true;
+            }
+
+            if (Physics.RaycastNonAlloc(car.transform.position, car.transform.right * -1, _raycastBuffer, 2, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) > 0)
+            {
+                lift = _raycastBuffer[0].GetEntity() as ModularCarGarage;
+                if (lift != null && lift.carOccupant == car)
+                    return true;
+            }
+
+            lift = null;
+            return false;
         }
 
         private static void DismountAllPlayersFromCar(ModularCar car)
@@ -1803,7 +1818,7 @@ namespace Oxide.Plugins
             // Cars can still be spawned below ceiling lights.
             carCenterPoint.y += 0.3f;
 
-            return Physics.BoxCastNonAlloc(carCenterPoint, carExtents, rotation * Vector3.forward, _boxcastBuffer, rotation, 0.1f, BoxcastLayers, QueryTriggerInteraction.Ignore) == 0;
+            return Physics.BoxCastNonAlloc(carCenterPoint, carExtents, rotation * Vector3.forward, _raycastBuffer, rotation, 0.1f, BoxcastLayers, QueryTriggerInteraction.Ignore) == 0;
         }
 
         private int GetPlayerAllowedFreshWater(string userId) =>
