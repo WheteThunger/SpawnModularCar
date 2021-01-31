@@ -2319,7 +2319,7 @@ namespace Oxide.Plugins
             public bool DeleteKeyOnDespawn = true;
 
             [JsonProperty("FuelAmount")]
-            public int FuelAmount = -1;
+            public int FuelAmount = 500;
 
             [JsonProperty("FreshWaterAmount")]
             public int FreshWaterAmount = -1;

@@ -113,7 +113,7 @@ Misc:
   "CanDespawnWhileOccupied": false,
   "DismountPlayersOnFetch": true,
   "DeleteMatchingKeysFromPlayerInventoryOnDespawn": true,
-  "FuelAmount": -1,
+  "FuelAmount": 500,
   "FreshWaterAmount": -1,
   "MaxPresetsPerPlayer": 10,
   "EnableEffects": true,
