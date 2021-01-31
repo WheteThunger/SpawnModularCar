@@ -15,7 +15,7 @@ using System.Text;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "4.0.2")]
+    [Info("Spawn Modular Car", "WhiteThunder", "5.0.0")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
