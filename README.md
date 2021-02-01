@@ -300,13 +300,13 @@ Here are all of the available options you can define per preset. The only requir
 Plugins can call this API to spawn a modular car for a player with various options. Cars spawned this way are independent of `mycar`.
 
 ```csharp
-ModularCar API_SpawnPresetCar(BasePlayer, Dictionary<string, object> options, Action<ModularCar> onReady)
+ModularCar API_SpawnPresetCar(BasePlayer, Dictionary<string, object> options)
 ```
 
-Below is an example with all options provided, plus the optional callback:
+Below is an example with all options provided:
 
 ```csharp
-SpawnModularCar.Call("API_SpawnPresetCar", player,
+ModularCar car = SpawnModularCar.Call("API_SpawnPresetCar", player,
     new Dictionary<string, object>
     {
         ["CodeLock"] = true,
@@ -318,25 +318,20 @@ SpawnModularCar.Call("API_SpawnPresetCar", player,
             "vehicle.1mod.cockpit.with.engine",
             "vehicle.2mod.fuel.tank"
         },
-    },
-    new Action<ModularCar>(car =>
-    {
-        // Example: Lock all engine containers
-        foreach (var module in car.AttachedModuleEntities)
-        {
-            var engineContainer = (module as VehicleModuleEngine)?.GetContainer();
-            if (engineContainer != null)
-                engineContainer.inventory.SetLocked(true);
-        }
     }
 ));
+// Example: Lock all engine containers
+foreach (var module in car.AttachedModuleEntities)
+{
+    var engineContainer = (module as VehicleModuleEngine)?.GetContainer();
+    if (engineContainer != null)
+        engineContainer.inventory.SetLocked(true);
+}
 ```
 
 The available options (e.g., locks, fuel, water) are the same as for server presets. See that section for more details.
 
 The return value will be the `ModularCar` instance that was spawned, or `null` if it was unable to be spawned for some reason (such as a plugin blocking it with a hook).
-
-**Note:** If your plugin needs to interact with features of the car after spawning it, you should use the optional `onReady` callback to ensure the car's modules are fully spawned and the other features you requested are applied (e.g., locks, fuel, water). The `ModularCar` instance is only returned directly by the API in case you need to synchronously register the car for cooldowns or other purposes.
 
 ## Hooks
 
