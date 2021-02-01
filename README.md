@@ -1,19 +1,25 @@
 ## Features
 
-- Allows players with permission to spawn modular cars.
-- Each player may have one car at a time using the `mycar` command.
-- Cars may spawn ready to drive, depending on the plugin configuration and player permissions.
-- Supports multiple types of presets, including personal presets.
-- API and an admin/server command allow spawning unlimited cars with a variety of options.
+- Allows players with permission to spawn modular cars
+- Each player may have one car at a time using the `mycar` command
+- Cars may spawn ready to drive, depending on the plugin configuration and player permissions
+- Supports multiple types of presets, including personal presets
+- API and an admin/server command allow spawning unlimited cars with a variety of options
 
 ## Recommended related plugins
-- [Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks) - Deploy code locks or key locks to vehicles. Integrates with this plugin to allow automatically deploying code locks to cars spawned by privileged players
-- [Engine Parts Durability](https://umod.org/plugins/engine-parts-durability) - Reduce or disable engine part durability (so they no longer take damage when the car does)
-- [No Engine Parts](https://umod.org/plugins/no-engine-parts) - Allow car engines to work without engine parts
-- [Larger Car Storage](https://umod.org/plugins/larger-car-storage) - Increase capacity of car storage modules
-- [Vehicle Decay Protection](https://umod.org/plugins/vehicle-decay-protection) - Reduce or disable vehicle decay in various situations
-- [Car Spawn Settings](https://umod.org/plugins/car-spawn-settings) - Configure modules, health, fuel, and engine parts that random cars spawn with. Module presets defined in that plugin will also apply when players spawn random cars with this plugin
-- [Craft Car Chassis](https://umod.org/plugins/craft-car-chassis) - Allow players to craft a blank chassis at a car lift
+
+- [Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks) -- Allows deploying code locks or key locks to vehicles
+  - Integrates with this plugin to allow automatically deploying code locks to cars spawned by privileged players
+- [Vehicle Decay Protection](https://umod.org/plugins/vehicle-decay-protection) -- Allows reducing or disabling vehicle decay in various situations
+- [Larger Car Storage](https://umod.org/plugins/larger-car-storage) -- Allows increasing capacity of car storage modules
+- [Car Spawn Settings](https://umod.org/plugins/car-spawn-settings) -- Allows configuring modules, health, fuel, and engine parts that random cars spawn with
+  - Module presets defined in that plugin will also apply when players spawn random cars with Spawn Modular Car
+- [Craft Car Chassis](https://umod.org/plugins/craft-car-chassis) -- Allows players to craft a blank chassis at a car lift
+
+The following related plugins only affect engine parts.
+- [Auto Engine Parts](https://umod.org/plugins/auto-engine-parts) -- Automatically fills engine modules with parts and prevents players from removing them
+- [Engine Parts Durability](https://umod.org/plugins/engine-parts-durability) -- Prevents engine parts from losing condition when the car is damaged
+- [No Engine Parts](https://umod.org/plugins/no-engine-parts) -- Allows car engines to work without engine parts
 
 ## Commands
 
