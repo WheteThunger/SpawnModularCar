@@ -15,7 +15,7 @@ using System.Text;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "5.0.1")]
+    [Info("Spawn Modular Car", "WhiteThunder", "5.0.2")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -180,7 +180,7 @@ namespace Oxide.Plugins
                 || !permission.UserHasPermission(car.OwnerID.ToString(), PermissionAutoStartEngine))
                 return null;
 
-            car.FinishStartingEngine();
+            car.engineController.FinishStartingEngine();
             return false;
         }
 
@@ -963,7 +963,7 @@ namespace Oxide.Plugins
 
                 // Restart the engine if it turned off during the brief moment it had no engine or no parts.
                 if (wasEngineOn && !car.IsOn() && car.CanRunEngines())
-                    car.FinishStartingEngine();
+                    car.engineController.FinishStartingEngine();
 
                 MaybeFillTankerModules(car, GetPlayerAllowedFreshWater(player.Id));
 
