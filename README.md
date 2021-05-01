@@ -387,7 +387,7 @@ The return value will be the `ModularCar` instance that was spawned, or `null` i
 - Returning `null` will result in the default behavior.
 
 ```csharp
-object CanSpawnModularCar(BasePlayer player)
+bool? CanSpawnModularCar(BasePlayer player)
 ```
 
 #### CanSpawnMyCar
@@ -397,7 +397,7 @@ object CanSpawnModularCar(BasePlayer player)
 - Returning `null` will result in the default behavior.
 
 ```csharp
-object CanSpawnMyCar(BasePlayer player)
+bool? CanSpawnMyCar(BasePlayer player)
 ```
 
 #### CanFetchMyCar
@@ -407,7 +407,7 @@ object CanSpawnMyCar(BasePlayer player)
 - Returning `null` will result in the default behavior.
 
 ```csharp
-object CanFetchMyCar(BasePlayer player, ModularCar car)
+bool? CanFetchMyCar(BasePlayer player, ModularCar car)
 ```
 
 #### CanFixMyCar
@@ -417,7 +417,7 @@ object CanFetchMyCar(BasePlayer player, ModularCar car)
 - Returning `null` will result in the default behavior.
 
 ```csharp
-object CanFixMyCar(BasePlayer player, ModularCar car)
+bool? CanFixMyCar(BasePlayer player, ModularCar car)
 ```
 
 #### CanLoadMyCarPreset
@@ -427,7 +427,7 @@ object CanFixMyCar(BasePlayer player, ModularCar car)
 - Returning `null` will result in the default behavior.
 
 ```csharp
-object CanLoadMyCarPreset(BasePlayer player, ModularCar car)
+bool? CanLoadMyCarPreset(BasePlayer player, ModularCar car)
 ```
 
 #### CanDestroyMyCar
@@ -437,5 +437,5 @@ object CanLoadMyCarPreset(BasePlayer player, ModularCar car)
 - Returning `null` will result in the default behavior.
 
 ```csharp
-object CanDestroyMyCar(BasePlayer player, ModularCar car)
+bool? CanDestroyMyCar(BasePlayer player, ModularCar car)
 ```
