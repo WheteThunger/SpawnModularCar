@@ -6,20 +6,44 @@
 - Supports multiple types of presets, including personal presets
 - API and an admin/server command allow spawning unlimited cars with a variety of options
 
-## Recommended related plugins
+## Quick start
 
-- [Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks) -- Allows deploying code locks or key locks to vehicles
-  - Integrates with this plugin to allow automatically deploying code locks to cars spawned by privileged players
-- [Vehicle Decay Protection](https://umod.org/plugins/vehicle-decay-protection) -- Allows reducing or disabling vehicle decay in various situations
-- [Larger Car Storage](https://umod.org/plugins/larger-car-storage) -- Allows increasing capacity of car storage modules
-- [Car Spawn Settings](https://umod.org/plugins/car-spawn-settings) -- Allows configuring modules, health, fuel, and engine parts that random cars spawn with
-  - Module presets defined in that plugin will also apply when players spawn random cars with Spawn Modular Car
-- [Craft Car Chassis](https://umod.org/plugins/craft-car-chassis) -- Allows players to craft a blank chassis at a car lift
+#### Use case #1: Allow players to spawn cars with the `mycar` command
 
-The following related plugins only affect engine parts.
-- [Auto Engine Parts](https://umod.org/plugins/auto-engine-parts) -- Automatically fills engine modules with parts and prevents players from removing them
-- [Engine Parts Durability](https://umod.org/plugins/engine-parts-durability) -- Prevents engine parts from losing condition when the car is damaged
-- [No Engine Parts](https://umod.org/plugins/no-engine-parts) -- Allows car engines to work without engine parts
+1. Grant the `spawnmodularcar.spawn.4` permission to allow players to spawn a 4-socket car with the `mycar` command.
+2. Check out the rest of the documentation to learn about additional features and options.
+
+#### Use case #2: Allow players to create and manage their own presets
+
+1. Grant a permission such as `spawnmodularcar.spawn.4` to allow players to spawn cars.
+2. Grant the `spawnmodularcar.presets` permission to allow players to save and manage their own presets.
+3. Read about the commands this enables in the `Commands` > `Personal presets` section of the documentation.
+
+#### Use case #3: Allow admins to create and manage presets for the whole server
+
+1. Grant a permission such as `spawnmodularcar.spawn.4` to allow players to spawn cars.
+2. Grant the `spawnmodularcar.presets.common` permission to allow players to spawn cars from common presets.
+3. Grant the `spawnmodularcar.presets.common.manage` permission to **admins** to allow creating and managing common presets.
+
+This will allow:
+1. Admins to save common presets with `mycar common save <name>`, as well as update and delete common presets with similar commands.
+2. Players to spawn cars from a common preset with `mycar common <name>`.
+
+Read more about the commands this enables in the `Commands` > `Common presets` section of the documentation.
+
+#### Use case #4: Allow admins to spawn unlimited preset cars
+
+1. Update the `ServerPresets` section of this plugin's configuration to define one or more named presets.
+2. Reload the plugin.
+3. Grant the `spawnmodularcar.givecar` permission to **admins**.
+
+This allows admins to use the `givecar <player> <preset>` command to spawn a car in front of the specified player using the specified preset. This can be done as many times as you want.
+
+#### Use case #5: Allow players to spawn preset cars via other plugins such as GUI shop
+
+1. Update the `ServerPresets` section of this plugin's configuration to define one or more named presets for your players to purchase. See the `Configuration` > `Server presets` section for examples.
+2. Reload the plugin.
+3. Refer to the documentation for GUI shop or whichever plugin on how to configure a shop listing to call the `givecar` command. It may look something like `givecar $player.id preset1`.
 
 ## Commands
 
@@ -35,15 +59,15 @@ When a modular car is spawned, it will be at full health. Additionally, dependin
 - It may automatically have a code lock.
 - It may automatically have a key lock, with a matching key added to your inventory.
 - All tanker modules may be automatically filled with fresh water (amount is configurable).
-- All engine modules may be automatically filled with your highest allowed quality of engine components.
+- All engine modules may be automatically filled with your highest allowed quality of engine parts.
 
 ### Other commands
 
-- `mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoCodeLock` or `AutoKeyLock` setting. Engine components will also be repaired. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, missing engine components are added, and lower quality components are replaced with the maximum quality you are allowed.
+- `mycar fix` -- Fix your car. This restores it to original condition as though you had just spawned it, with the exception that it will not add or remove a lock, regardless of your `AutoCodeLock` or `AutoKeyLock` setting. Engine parts will also be repaired. If you were granted any of the `spawnmodularcar.engineparts.*` permissions, missing engine parts are added, and lower quality parts are replaced with the maximum quality you are allowed.
 - `mycar fetch` -- Teleport your car to you in an upright position.
 - `mycar destroy` -- Destroy your car, allowing you to spawn a new one.
   - Non-empty storage modules will drop a bag with their items next to where the car was located.
-  - If the car's engine modules contained components that are of higher quality than are allowed by your `spawnmodularcar.engineparts.*` permissions, those will be added to your inventory if there is space, else dropped to the ground in front of you.
+  - If the car's engine modules contained parts that are of higher quality than are allowed by your `spawnmodularcar.engineparts.*` permissions, those will be added to your inventory if there is space, else dropped to the ground in front of you.
 - `mycar help` -- Print a list of available commands and their usage. Only shows commands allowed by your permissions.
 
 ### Personal presets
@@ -57,7 +81,7 @@ Players with the `spawnmodularcar.presets` permission can save custom module con
   - The car will be fixed according to the same rules as `mycar fix`.
   - The car's locks will be removed if the car no longer has at least one cockpit module.
   - Non-empty storage modules that were replaced will drop a bag with their items next to the car.
-  - Any engine components of higher quality than are allowed by your `spawnmodularcar.engineparts.*` permissions will be redistributed throughout the engine modules in the loaded preset, with the highest quality parts towards the front-most engine modules. If any engine components are left over, those will be added to your inventory if there is space, else dropped to the ground in front of you.
+  - Any engine parts of higher quality than are allowed by your `spawnmodularcar.engineparts.*` permissions will be redistributed throughout the engine modules in the loaded preset, with the highest quality parts towards the front-most engine modules. If any engine parts are left over, those will be added to your inventory if there is space, else dropped to the ground in front of you.
 - `mycar rename <name> <new name>` -- Rename a preset.
 - `mycar delete <name>` -- Delete the specified preset.
 
@@ -72,7 +96,7 @@ Players with the `spawnmodularcar.presets.common.manage` permission can optional
 - `mycar common save <name>` -- Save your car's current module configuration under the specified common preset name.
 - `mycar common update <name>` -- Overwrite an existing common preset with your car's current module configuration.
 - `mycar common rename <name> <new name>` -- Rename a common preset.
-- `mycar delete <name>` -- Delete the specified common preset.
+- `mycar common delete <name>` -- Delete the specified common preset.
 
 ### Personal settings
 
@@ -87,10 +111,10 @@ The following permissions control the maximum number of module sockets the playe
 - `spawnmodularcar.spawn.3` -- Allows spawning a car with 2-3 sockets.
 - `spawnmodularcar.spawn.4` -- Allows spawning a car with 2-4 sockets.
 
-Granting the following permissions will cause the player's car to automatically spawn with engine components of the corresponding quality in each engine module. If none of these are granted, the car spawns without any engine components, so it cannot be driven until a player adds them.
-- `spawnmodularcar.engineparts.tier1` -- Spawn your car with low quality engine components.
-- `spawnmodularcar.engineparts.tier2` -- Spawn your car with medium quality engine components.
-- `spawnmodularcar.engineparts.tier3` -- Spawn your car with high quality engine components.
+Granting the following permissions will cause the player's car to automatically spawn with engine parts of the corresponding quality in each engine module. If none of these are granted, the car spawns without any engine parts, so it cannot be driven until a player adds them.
+- `spawnmodularcar.engineparts.tier1` -- Spawn your car with low quality engine parts.
+- `spawnmodularcar.engineparts.tier2` -- Spawn your car with medium quality engine parts.
+- `spawnmodularcar.engineparts.tier3` -- Spawn your car with high quality engine parts.
 
 Presets:
 - `spawnmodularcar.presets` -- Allows you to spawn your car from a personal preset. Also enables the `save`, `update`, `rename` and `delete` preset commands.
@@ -204,9 +228,24 @@ Here are all of the available options you can define per preset. The only requir
   - Previously this field was named `ModuleIDs`. That name still works for backwards compatibility but it only accepts ids.
 - `CodeLock` (`true` or `false`) -- Whether to deploy a code lock to the car.
 - `KeyLock` (`true` or `false`) -- Whether to create a key lock and add a matching key to the player's inventory.
-- `EnginePartsTier` (`0` - `3`) -- The quality of engine components to automatically add to all engine modules (`0` for no engine components).
+- `EnginePartsTier` (`0` - `3`) -- The quality of engine parts to automatically add to all engine modules (`0` for no engine parts).
 - `FuelAmount` -- The amount of fuel to put in the fuel tank (`-1` for max).
 - `FreshWaterAmount` -- The amount of fresh water to add to each tanker module if applicable (`-1` for max).
+
+## Recommended compatible plugins
+
+- [Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks) -- Allows deploying code locks or key locks to vehicles
+  - Integrates with this plugin to allow automatically deploying code locks to cars spawned by privileged players
+- [Vehicle Decay Protection](https://umod.org/plugins/vehicle-decay-protection) -- Allows reducing or disabling vehicle decay in various situations
+- [Larger Car Storage](https://umod.org/plugins/larger-car-storage) -- Allows increasing capacity of car storage modules
+- [Car Spawn Settings](https://umod.org/plugins/car-spawn-settings) -- Allows configuring modules, health, fuel, and engine parts that random cars spawn with
+  - Module presets defined in that plugin will also apply when players spawn random cars with Spawn Modular Car
+- [Craft Car Chassis](https://umod.org/plugins/craft-car-chassis) -- Allows players to craft a blank chassis at a car lift
+
+The following plugins only affect engine parts.
+- [Auto Engine Parts](https://umod.org/plugins/auto-engine-parts) -- Automatically fills engine modules with parts and prevents players from removing them
+- [No Engine Parts](https://umod.org/plugins/no-engine-parts) -- Allows car engines to work without engine parts
+- [Engine Parts Durability](https://umod.org/plugins/engine-parts-durability) -- Prevents engine parts from losing condition when the car is damaged
 
 ## Localization
 
