@@ -237,7 +237,7 @@ Here are all of the available options you can define per preset. The only requir
 - [Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks) -- Allows deploying code locks or key locks to vehicles
   - Integrates with this plugin to allow automatically deploying code locks to cars spawned by privileged players
 - [Vehicle Decay Protection](https://umod.org/plugins/vehicle-decay-protection) -- Allows reducing or disabling vehicle decay in various situations
-- [Larger Car Storage](https://umod.org/plugins/larger-car-storage) -- Allows increasing capacity of car storage modules
+- [Vehicle Storage](https://umod.org/plugins/vehicle-storage) -- Allows adding or increasing storage on vehicles owned by privileged players
 - [Car Spawn Settings](https://umod.org/plugins/car-spawn-settings) -- Allows configuring modules, health, fuel, and engine parts that random cars spawn with
   - Module presets defined in that plugin will also apply when players spawn random cars with Spawn Modular Car
 - [Craft Car Chassis](https://umod.org/plugins/craft-car-chassis) -- Allows players to craft a blank chassis at a car lift
