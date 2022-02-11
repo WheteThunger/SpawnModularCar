@@ -340,18 +340,22 @@ The following plugins only affect engine parts.
 
 ## Developer API
 
-#### API_SpawnPresetCar
+Cars spawned by the API methods are independent of `mycar`.
 
-Plugins can call this API to spawn a modular car for a player with various options. Cars spawned this way are independent of `mycar`.
+#### API_SpawnPreset
 
-```csharp
-ModularCar API_SpawnPresetCar(BasePlayer, Dictionary<string, object> options)
+```cs
+ModularCar API_SpawnPreset(Dictionary<string, object> options, BasePlayer player, Vector3 position, Quaternion rotation)
 ```
+
+- Spawns a car using the specified preset options, at the specified position and rotation.
+- If the position is equal to `Vector3.zero`, the spawn position and rotation will be determined by the player.
+- Returns `null` if the car could not be spawned, such as if the preset is missing module ids, or if another plugin blocked it with a hook.
 
 Below is an example with all options provided:
 
 ```csharp
-ModularCar car = SpawnModularCar.Call("API_SpawnPresetCar", player,
+var car = SpawnModularCar.Call("API_SpawnPreset",
     new Dictionary<string, object>
     {
         ["CodeLock"] = true,
@@ -359,24 +363,33 @@ ModularCar car = SpawnModularCar.Call("API_SpawnPresetCar", player,
         ["EnginePartsTier"] = 3,
         ["FreshWaterAmount"] = 50000,
         ["FuelAmount"] = 500,
-        ["Modules"] = new object[] {
+        ["Modules"] = new object[]
+        {
             "vehicle.1mod.cockpit.with.engine",
             "vehicle.2mod.fuel.tank"
         },
-    }
-));
-// Example: Lock all engine containers
-foreach (var module in car.AttachedModuleEntities)
-{
-    var engineContainer = (module as VehicleModuleEngine)?.GetContainer();
-    if (engineContainer != null)
-        engineContainer.inventory.SetLocked(true);
-}
+    },
+    player
+) as ModularCar;
 ```
 
 The available options (e.g., locks, fuel, water) are the same as for server presets. See that section for more details.
 
-The return value will be the `ModularCar` instance that was spawned, or `null` if it was unable to be spawned for some reason (such as a plugin blocking it with a hook).
+#### API_SpawnNamedPreset
+
+```cs
+ModularCar API_SpawnNamedPreset(string presetName, BasePlayer player, Vector3 position, Quaternion rotation)
+```
+
+- Spawns a car using the specified ServerPreset from the configuration file, at the specified position and rotation.
+- If the position is equal to `Vector3.zero`, the spawn position and rotation will be determined by the player.
+- Returns `null` if the car could not be spawned, such as if the preset does not exist.
+
+#### API_SpawnPresetCar (legacy)
+
+```csharp
+ModularCar API_SpawnPresetCar(BasePlayer player, Dictionary<string, object> options)
+```
 
 ## Hooks
 
