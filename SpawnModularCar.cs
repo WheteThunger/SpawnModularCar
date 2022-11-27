@@ -1,6 +1,5 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Newtonsoft.Json.Serialization;
 using Oxide.Core;
 using Oxide.Core.Libraries.Covalence;
 using Oxide.Core.Plugins;
@@ -21,7 +20,7 @@ namespace Oxide.Plugins
         #region Fields
 
         [PluginReference]
-        private Plugin CarCodeLocks, VehicleDeployedLocks;
+        private Plugin VehicleDeployedLocks;
 
         private static SpawnModularCar _pluginInstance;
         private static Configuration _pluginConfig;
@@ -772,8 +771,6 @@ namespace Oxide.Plugins
                 || DestroyMyCarWasBlocked(basePlayer, car))
                 return;
 
-            MaybeRemoveMatchingKeysFromPlayer(basePlayer, car);
-
             var extractedEngineParts = ExtractEnginePartsAboveTierAndDeleteRest(car, GetPlayerEnginePartsTier(player.Id));
 
             car.Kill();
@@ -1011,9 +1008,8 @@ namespace Oxide.Plugins
 
                 MaybeFillTankerModules(car, GetPlayerAllowedFreshWater(player.Id));
 
-                if (car.carLock.HasALock && !car.carLock.CanHaveALock())
+                if (car.CarLock.HasALock && !car.CarLock.CanHaveALock())
                 {
-                    MaybeRemoveMatchingKeysFromPlayer(basePlayer, car);
                     car.RemoveLock();
                 }
 
@@ -1768,28 +1764,6 @@ namespace Oxide.Plugins
                         (child as BasePlayer).SetParent(null, worldPositionStays: true);
         }
 
-        private static bool TryAddKeyLockForPlayer(ModularCar car, BasePlayer player)
-        {
-            if (car.carLock.HasALock || !car.carLock.CanHaveALock())
-                return false;
-
-            car.carLock.AddALock();
-            car.carLock.TryCraftAKey(player, free: true);
-            return true;
-        }
-
-        private static void MaybeRemoveMatchingKeysFromPlayer(BasePlayer player, ModularCar car)
-        {
-            if (_pluginConfig.DeleteKeyOnDespawn && car.carLock.HasALock)
-            {
-                var matchingKeys = player.inventory.FindItemIDs(car.carKeyDefinition.itemid)
-                    .Where(key => key.instanceData != null && key.instanceData.dataInt == car.carLock.LockID);
-
-                foreach (var key in matchingKeys)
-                    key.Remove();
-            }
-        }
-
         private static void MaybeFillTankerModules(ModularCar car, int specifiedLiquidAmount)
         {
             if (specifiedLiquidAmount == 0)
@@ -1925,11 +1899,7 @@ namespace Oxide.Plugins
             if (car == null)
                 return;
 
-            var chatMessages = new List<string> { GetMessage(player, "Command.Spawn.Success") };
-            if (car.carLock.HasALock)
-                chatMessages.Add(GetMessage(player, "Command.Spawn.Success.Locked"));
-
-            player.Reply(string.Join(" ", chatMessages));
+            ReplyToPlayer(player, "Command.Spawn.Success");
         }
 
         private void SpawnPresetCarForPlayer(IPlayer player, SimplePreset preset)
@@ -1952,11 +1922,7 @@ namespace Oxide.Plugins
             if (car == null)
                 return;
 
-            var chatMessages = new List<string> { GetMessage(player, "Command.Spawn.Success.Preset", preset.Name) };
-            if (car.carLock.HasALock)
-                chatMessages.Add(GetMessage(player, "Command.Spawn.Success.Locked"));
-
-            ReplyToPlayer(player, string.Join(" ", chatMessages));
+            ReplyToPlayer(player, "Command.Spawn.Success.Preset", preset.Name);
 
             if (preset != null)
                 MaybePlayCarRepairEffects(car);
@@ -2012,8 +1978,8 @@ namespace Oxide.Plugins
             if (options.CodeLock && VehicleDeployedLocks != null)
                 VehicleDeployedLocks.Call("API_DeployCodeLock", car, player);
 
-            if (options.KeyLock && player != null)
-                TryAddKeyLockForPlayer(car, player);
+            if (!options.CodeLock && options.KeyLock && VehicleDeployedLocks != null)
+                VehicleDeployedLocks.Call("API_DeployKeyLock", car, player);
 
             return car;
         }
@@ -2378,9 +2344,6 @@ namespace Oxide.Plugins
 
             [JsonProperty("DismountPlayersOnFetch")]
             public bool DismountPlayersOnFetch = true;
-
-            [JsonProperty("DeleteMatchingKeysFromPlayerInventoryOnDespawn")]
-            public bool DeleteKeyOnDespawn = true;
 
             [JsonProperty("FuelAmount")]
             public int FuelAmount = 500;
@@ -2752,7 +2715,6 @@ namespace Oxide.Plugins
                 ["Command.Spawn.Error.CarAlreadyExists"] = "Error: You already have a car.",
                 ["Command.Spawn.Error.CarAlreadyExists.Help"] = "Try <color=yellow>mycar fetch</color> or <color=yellow>mycar help</color>.",
                 ["Command.Spawn.Success"] = "Here is your modular car.",
-                ["Command.Spawn.Success.Locked"] = "A matching key was added to your inventory.",
                 ["Command.Spawn.Success.Preset"] = "Here is your modular car from preset <color=yellow>{0}</color>.",
 
                 ["Command.Fix.Success"] = "Your car was fixed.",

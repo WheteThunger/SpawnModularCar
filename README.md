@@ -56,8 +56,8 @@ This allows admins to use the `givecar <player> <preset>` command to spawn a car
 
 When a modular car is spawned, it will be at full health. Additionally, depending on your granted permissions and personal settings:
 - It may be fueled (amount is configurable).
-- It may automatically have a code lock.
-- It may automatically have a key lock, with a matching key added to your inventory.
+- It may automatically have a code lock, via the Vehicle Deployed Locks plugin.
+- It may automatically have a key lock, via the Vehicle Deployed Locks plugin.
 - All tanker modules may be automatically filled with fresh water (amount is configurable).
 - All engine modules may be automatically filled with your highest allowed quality of engine parts.
 
@@ -142,7 +142,6 @@ Misc:
   "CanFetchWhileOccupied": false,
   "CanDespawnWhileOccupied": false,
   "DismountPlayersOnFetch": true,
-  "DeleteMatchingKeysFromPlayerInventoryOnDespawn": true,
   "FuelAmount": 500,
   "FreshWaterAmount": -1,
   "MaxPresetsPerPlayer": 10,
@@ -162,7 +161,6 @@ Misc:
 - `CanFetchWhileOccupied` (`true` or `false`) -- Whether to allow players to fetch their car while it's occupied. If `true`, fetchinig a car will safely eject players from seating and flatbed modules if `DismountPlayersOnFetch` is `true`, else those players will be teleported with the car.
 - `CanDespawnWhileOccupied` (`true` or `false`) -- Whether to allow players to use `mycar destroy` while their car is occupied. If `true`, despawning a car will safely eject players from seating and flatbed modules.
 - `DismountPlayersOnFetch` (`true` or `false`) -- Whether to dismount all players from a car when it is fetched. Has no effect unless `CanFetchWhileOccupied` is also `true`.
-- `DeleteMatchingKeysFromPlayerInventoryOnDespawn` (`true` or `false`) -- Whether to delete all matching keys from the owner player's inventory when they use `mycar destroy`. Also applies to when they use `mycar load` and the lock is removed because the preset contains no cockpit modules. I recommend this be set to `true`, especially if you are allowing players to use the automatic key lock feature since that spawns keys which may otherwise clutter the player's inventory.
 - `FuelAmount` -- The amount of low grade fuel to add to the fuel tank when spawning. Only applies if the player has the `spawnmodularcar.autofuel` permission. When fixing the car or loading a preset, only the amount missing will be added to reach this minimum target value. Defaults to `-1` which represents maximum stack size.
 - `FreshWaterAmount` -- The amount of fresh water to add to each of the car's tanker modules when spawning. Only applies if the player has the `spawnmodularcar.autofilltankers` permission and has the AutoFillTankers setting on. Defaults to `-1` which represents maximum stack size. Note: If for some reason the car has multiple tankers (i.e., no other modules), this amount will be added to each one.
 - `MaxPresetsPerPlayer` -- The maximum number of module configuration presets each player is allowed to save.
@@ -235,7 +233,7 @@ Here are all of the available options you can define per preset. The only requir
 ## Recommended compatible plugins
 
 - [Vehicle Deployed Locks](https://umod.org/plugins/vehicle-deployed-locks) -- Allows deploying code locks or key locks to vehicles
-  - Integrates with this plugin to allow automatically deploying code locks to cars spawned by privileged players
+  - Integrates with this plugin to allow automatically deploying code locks and key locks to cars spawned by privileged players
 - [Vehicle Decay Protection](https://umod.org/plugins/vehicle-decay-protection) -- Allows reducing or disabling vehicle decay in various situations
 - [Vehicle Storage](https://umod.org/plugins/vehicle-storage) -- Allows adding or increasing storage on vehicles owned by privileged players
 - [Car Spawn Settings](https://umod.org/plugins/car-spawn-settings) -- Allows configuring modules, health, fuel, and engine parts that random cars spawn with
