@@ -13,7 +13,7 @@ using System.Text;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "5.2.0")]
+    [Info("Spawn Modular Car", "WhiteThunder", "5.2.1")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -392,6 +392,10 @@ namespace Oxide.Plugins
         private void MyCarCommand(IPlayer player, string cmd, string[] args)
         {
             if (player.IsServer)
+                return;
+
+            var basePlayer = player.Object as BasePlayer;
+            if (!basePlayer.CanInteract())
                 return;
 
             if (args.Length == 0)
