@@ -13,7 +13,7 @@ using System.Text;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "5.2.1")]
+    [Info("Spawn Modular Car", "WhiteThunder", "5.2.2")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -161,7 +161,7 @@ namespace Oxide.Plugins
             if (!IsPlayerCar(car))
                 return;
 
-            string userId = _pluginData.PlayerCars.FirstOrDefault(x => x.Value == car.net.ID).Key;
+            string userId = _pluginData.PlayerCars.FirstOrDefault(x => x.Value == car.net.ID.Value).Key;
             BasePlayer player = BasePlayer.Find(userId);
 
             if (player != null)
@@ -174,7 +174,7 @@ namespace Oxide.Plugins
         {
             if (car == null
                 || car.OwnerID == 0
-                || !_pluginData.PlayerCars.ContainsValue(car.net.ID)
+                || !_pluginData.PlayerCars.ContainsValue(car.net.ID.Value)
                 || !permission.UserHasPermission(car.OwnerID.ToString(), PermissionAutoStartEngine))
                 return;
 
@@ -1829,14 +1829,14 @@ namespace Oxide.Plugins
         private static int Clamp(int x, int min, int max) => Math.Min(max, Math.Max(min, x));
 
         private bool IsPlayerCar(ModularCar car) =>
-            _pluginData.PlayerCars.ContainsValue(car.net.ID);
+            _pluginData.PlayerCars.ContainsValue(car.net.ID.Value);
 
         private ModularCar FindPlayerCar(IPlayer player)
         {
             if (!_pluginData.PlayerCars.ContainsKey(player.Id))
                 return null;
 
-            var car = BaseNetworkable.serverEntities.Find(_pluginData.PlayerCars[player.Id]) as ModularCar;
+            var car = BaseNetworkable.serverEntities.Find(new NetworkableId(_pluginData.PlayerCars[player.Id])) as ModularCar;
 
             // Just in case the car was removed and that somehow wasn't detected sooner.
             // This could happen if the data file somehow got out of sync for instance.
@@ -2065,7 +2065,7 @@ namespace Oxide.Plugins
         private class PluginData : SimplePresetManager
         {
             [JsonProperty("playerCars")]
-            public Dictionary<string, uint> PlayerCars = new Dictionary<string, uint>();
+            public Dictionary<string, ulong> PlayerCars = new Dictionary<string, ulong>();
 
             [JsonProperty("Cooldowns")]
             public CooldownManager Cooldowns = new CooldownManager();
@@ -2083,7 +2083,7 @@ namespace Oxide.Plugins
 
             public void RegisterCar(string userId, ModularCar car)
             {
-                PlayerCars.Add(userId, car.net.ID);
+                PlayerCars.Add(userId, car.net.ID.Value);
                 SaveData();
             }
 
