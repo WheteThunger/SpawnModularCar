@@ -13,7 +13,7 @@ using System.Text;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "5.2.2")]
+    [Info("Spawn Modular Car", "WhiteThunder", "5.2.3")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
@@ -1704,7 +1704,10 @@ namespace Oxide.Plugins
 
         private static void AddOrRestoreFuel(ModularCar car, int specifiedFuelAmount)
         {
-            var fuelContainer = car.GetFuelSystem().GetFuelContainer();
+            if (car.GetFuelSystem() is not EntityFuelSystem fuelSystem)
+                return;
+
+            var fuelContainer = fuelSystem.GetFuelContainer();
             var targetFuelAmount = specifiedFuelAmount == -1 ? fuelContainer.allowedItem.stackable : specifiedFuelAmount;
             if (targetFuelAmount == 0)
                 return;
