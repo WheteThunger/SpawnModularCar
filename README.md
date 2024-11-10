@@ -146,6 +146,7 @@ Misc:
   "FreshWaterAmount": -1,
   "MaxPresetsPerPlayer": 10,
   "EnableEffects": true,
+  "DisallowedMonuments": [],
   "Cooldowns": {
     "SpawnCarSeconds": 3600,
     "FetchCarSeconds": 600,
@@ -165,6 +166,7 @@ Misc:
 - `FreshWaterAmount` -- The amount of fresh water to add to each of the car's tanker modules when spawning. Only applies if the player has the `spawnmodularcar.autofilltankers` permission and has the AutoFillTankers setting on. Defaults to `-1` which represents maximum stack size. Note: If for some reason the car has multiple tankers (i.e., no other modules), this amount will be added to each one.
 - `MaxPresetsPerPlayer` -- The maximum number of module configuration presets each player is allowed to save.
 - `EnableEffects` (`true` or `false`) -- Enable audio and visual effects when spawning a car from a preset, using `mycar fix` or `mycar load`.
+- `DisallowedMonuments` -- List of monument short names where cars cannot be spawned or fetched. For example, `["powerplant", "trainyard"]`. These do not have to be exact matches, so `["oilrig"]` will apply to both `"oilrig_1"` and `"oilrig_2"`. Requires the [Monument Finder](https://umod.org/plugins/monument-finder) plugin to be installed. See the Monument Finder documentation for how to determine monument short names.
 - `Cooldowns` -- Various cooldowns for balancing.
 
 ### Server presets

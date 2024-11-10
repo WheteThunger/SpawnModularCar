@@ -13,14 +13,14 @@ using System.Text;
 
 namespace Oxide.Plugins
 {
-    [Info("Spawn Modular Car", "WhiteThunder", "5.2.3")]
+    [Info("Spawn Modular Car", "WhiteThunder", "5.3.0")]
     [Description("Allows players to spawn modular cars.")]
     internal class SpawnModularCar : CovalencePlugin
     {
         #region Fields
 
         [PluginReference]
-        private Plugin VehicleDeployedLocks;
+        private readonly Plugin MonumentFinder, VehicleDeployedLocks;
 
         private static SpawnModularCar _pluginInstance;
         private static Configuration _pluginConfig;
@@ -141,6 +141,14 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermissionPresetLoad, this);
             permission.RegisterPermission(PermissionCommonPresets, this);
             permission.RegisterPermission(PermissionManageCommonPresets, this);
+        }
+
+        private void OnServerInitialized()
+        {
+            if (_pluginConfig.HasMonumentRestriction && MonumentFinder == null)
+            {
+                LogWarning("The Monument Finder plugin is not loaded, so monument restrictions will not work. If you don't want monument restrictions, set \"DisallowedMonuments\": [] in the config to stop seeing this warning.");
+            }
         }
 
         private void Unload()
@@ -1161,6 +1169,32 @@ namespace Oxide.Plugins
 
         #endregion
 
+        #region Dependencies
+
+        private class MonumentAdapter
+        {
+            public string ShortName => (string)_monumentInfo["ShortName"];
+
+            private Dictionary<string, object> _monumentInfo;
+
+            public MonumentAdapter(Dictionary<string, object> monumentInfo)
+            {
+                _monumentInfo = monumentInfo;
+            }
+
+            public bool IsInBounds(Vector3 position) =>
+                ((Func<Vector3, bool>)_monumentInfo["IsInBounds"]).Invoke(position);
+        }
+
+        private MonumentAdapter GetClosestMonument(Vector3 position)
+        {
+            return MonumentFinder?.Call("API_GetClosest", position) is Dictionary<string, object> dictResult
+                ? new MonumentAdapter(dictResult)
+                : null;
+        }
+
+        #endregion
+
         #region Helper Methods - Command Checks
 
         private static bool SpawnWasBlocked(BasePlayer player)
@@ -1198,6 +1232,36 @@ namespace Oxide.Plugins
             return Interface.CallHook("CanDestroyMyCar", player, car) is false;
         }
 
+        private static bool HasParent<T>(BasePlayer player) where T : BaseEntity
+        {
+            var parent = player.GetParentEntity();
+            while (parent != null)
+            {
+                if (parent is T)
+                    return true;
+
+                parent = parent.GetParentEntity();
+            }
+
+            return false;
+        }
+
+        private bool IsMonumentAllowed(BasePlayer basePlayer)
+        {
+            if (!_pluginConfig.HasMonumentRestriction || MonumentFinder == null)
+                return true;
+
+            var position = basePlayer.transform.position;
+            return GetClosestMonument(position) is not {} monument
+                || !monument.IsInBounds(position)
+                || _pluginConfig.IsMonumentAllowed(monument.ShortName);
+        }
+
+        private bool IsOnCargoShip(BasePlayer basePlayer)
+        {
+            return HasParent<CargoShip>(basePlayer);
+        }
+
         private bool VerifyPermissionAny(IPlayer player, params string[] permissionNames)
         {
             foreach (var perm in permissionNames)
@@ -1213,7 +1277,8 @@ namespace Oxide.Plugins
 
         private bool VerifyLocationNotRestricted(IPlayer player)
         {
-            if ((player.Object as BasePlayer).GetComponentInParent<CargoShip>() != null)
+            var basePlayer = player.Object as BasePlayer;
+            if (IsOnCargoShip(basePlayer) || !IsMonumentAllowed(basePlayer))
             {
                 ReplyToPlayer(player, "Generic.Error.LocationRestricted");
                 return false;
@@ -2452,11 +2517,17 @@ namespace Oxide.Plugins
             [JsonProperty("EnableEffects")]
             public bool EnableEffects = true;
 
+            [JsonProperty("DisallowedMonuments")]
+            private string[] DisallowedMonuments = Array.Empty<string>();
+
             [JsonProperty("Cooldowns")]
             public CooldownConfig Cooldowns = new();
 
             [JsonProperty("Presets")]
             public ServerPreset[] Presets = Array.Empty<ServerPreset>();
+
+            [JsonIgnore]
+            public bool HasMonumentRestriction => DisallowedMonuments?.Length > 0;
 
             public ServerPreset FindPreset(string name)
             {
@@ -2484,6 +2555,20 @@ namespace Oxide.Plugins
                 }
 
                 return changed;
+            }
+
+            public bool IsMonumentAllowed(string monumentName)
+            {
+                if (DisallowedMonuments.Length == 0)
+                    return true;
+
+                foreach (var disallowedMonumentName in DisallowedMonuments)
+                {
+                    if (monumentName.IndexOf(disallowedMonumentName, StringComparison.OrdinalIgnoreCase) >= 0)
+                        return false;
+                }
+
+                return true;
             }
         }
 
@@ -2654,7 +2739,7 @@ namespace Oxide.Plugins
 
         #endregion
 
-        #region Configuration Boilerplate
+        #region Configuration Helpers
 
         private class SerializableConfiguration
         {
